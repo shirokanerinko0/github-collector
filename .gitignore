@@ -1,0 +1,12 @@
+# 配置文件
+config.json
+
+# IDE设置
+.vscode/
+
+# 缓存文件
+__pycache__/
+*.pyc
+
+# 数据文件
+data/
