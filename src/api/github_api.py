@@ -16,9 +16,9 @@ from datetime import datetime
 # 尝试从main.py导入全局配置变量
 CONFIG = load_config()
 
+limits = CONFIG["limits"]
 # 全局DEBUG变量，用于控制debug模式
 DEBUG = True
-
 
 class GitHubAPI:
     """
@@ -125,13 +125,13 @@ class GitHubAPI:
             traceback.print_exc()
             return None
     
-    def get_issues(self, repo, state="all", labels=None):
+    def get_issues(self, repo, state="all", labels=[]):
         """
         获取仓库的Issues
         :param repo: 仓库对象
         :param state: Issues状态 (open, closed, all)
         :param labels: 标签列表，用于过滤
-        :return: Issues迭代器
+        :return: Issues列表
         """
         api_url = f"https://api.github.com/repos/{repo.owner.login}/{repo.name}/issues"
         params = f"?state={state}"
@@ -140,16 +140,21 @@ class GitHubAPI:
         api_url += params
         
         try:
-            if labels:
-                issues = repo.get_issues(state=state, labels=labels)
-            else:
-                issues = repo.get_issues(state=state)
-            
+            issues = repo.get_issues(state=state, labels=labels)
+            issue_list = []
+            count = 0
+            for issue in issues:
+                if count >= limits["max_issues"]:
+                    break
+                if "pull_request" in issue.raw_data:
+                    continue
+                issue_list.append(issue)
+                print(f"当前获取到第 {count+1} 个Issue: {issue.title}")
+                count += 1
             # 记录API响应
             if self.debug:
-                issues_list = list(issues)
                 issues_data = []
-                for issue in issues_list[:10]:  # 只记录前10个，避免日志过大
+                for issue in issue_list:  
                     issues_data.append({
                         "number": issue.number,
                         "title": issue.title,
@@ -159,16 +164,9 @@ class GitHubAPI:
                         "user": issue.user.login if issue.user else None,
                         "labels": [label.name for label in issue.labels]
                     })
-                if len(issues_list) > 10:
-                    issues_data.append({"message": f"... 等 {len(issues_list) - 10} 个issues"})
                 self._log_api_response(api_url, issues_data)
-                # 重新获取issues迭代器，因为之前的已经被消费
-                if labels:
-                    issues = repo.get_issues(state=state, labels=labels)
-                else:
-                    issues = repo.get_issues(state=state)
             
-            return issues
+            return issue_list
         except Exception as e:
             print(f"获取Issues失败: {str(e)}")
             import traceback
@@ -200,32 +198,27 @@ class GitHubAPI:
                 kwargs["until"] = until
 
             commits = repo.get_commits(**kwargs)
+            commits_list = []
+            count = 0
+            for commit in commits:
+                if count >= limits["max_commits"]:
+                    break
+                commits_list.append(commit)
+                count += 1
             
             # 记录API响应
             if self.debug:
-                commits_list = list(commits)
                 commits_data = []
-                for commit in commits_list[:10]:  # 只记录前10个，避免日志过大
+                for commit in commits_list:  # 只记录前10个，避免日志过大
                     commits_data.append({
                         "sha": commit.sha,
                         "message": commit.commit.message,
                         "author": commit.commit.author.name if commit.commit.author else None,
                         "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
                     })
-                if len(commits_list) > 10:
-                    commits_data.append({"message": f"... 等 {len(commits_list) - 10} 个commits"})
                 self._log_api_response(api_url, commits_data)
-                # 重新获取commits迭代器，因为之前的已经被消费
-                if since is not None and until is not None:
-                    commits = repo.get_commits(since=since, until=until)
-                elif since is not None:
-                    commits = repo.get_commits(since=since)
-                elif until is not None:
-                    commits = repo.get_commits(until=until)
-                else:
-                    commits = repo.get_commits()
             
-            return commits
+            return commits_list
         except Exception as e:
             print(f"获取Commits失败: {str(e)}")
             import traceback
@@ -237,18 +230,24 @@ class GitHubAPI:
         获取仓库的Pull Requests
         :param repo: 仓库对象
         :param state: PR状态 (open, closed, all)
-        :return: Pull Requests迭代器
+        :return: Pull Requests列表
         """
         api_url = f"https://api.github.com/repos/{repo.owner.login}/{repo.name}/pulls?state={state}"
         
         try:
             pulls = repo.get_pulls(state=state)
+            pulls_list = []
+            count = 0
+            for pr in pulls:
+                if count >= limits["max_pull_requests"]:
+                    break
+                pulls_list.append(pr)
+                count += 1
             
             # 记录API响应
             if self.debug:
-                pulls_list = list(pulls)
                 pulls_data = []
-                for pr in pulls_list[:10]:  # 只记录前10个，避免日志过大
+                for pr in pulls_list:
                     pulls_data.append({
                         "number": pr.number,
                         "title": pr.title,
@@ -260,13 +259,9 @@ class GitHubAPI:
                         "head": pr.head.ref,
                         "base": pr.base.ref
                     })
-                if len(pulls_list) > 10:
-                    pulls_data.append({"message": f"... 等 {len(pulls_list) - 10} 个pull requests"})
                 self._log_api_response(api_url, pulls_data)
                 # 重新获取pulls迭代器，因为之前的已经被消费
-                pulls = repo.get_pulls(state=state)
-            
-            return pulls
+            return pulls_list
         except Exception as e:
             print(f"获取Pull Requests失败: {str(e)}")
             import traceback

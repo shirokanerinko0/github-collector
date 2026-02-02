@@ -13,9 +13,9 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.api.github_api import GitHubAPI
-from main import CONFIG
-from src.utils.utils import load_config
 
+from src.utils.utils import load_config
+CONFIG = load_config()
 
 class TestGitHubAPI(unittest.TestCase):
     """
@@ -28,10 +28,7 @@ class TestGitHubAPI(unittest.TestCase):
         测试前的初始化工作
         """
         # 加载配置文件
-        if not CONFIG:
-            cls.config = load_config()
-        else:
-            cls.config = CONFIG
+        cls.config = CONFIG
         
         # 从配置中获取信息
         cls.access_token = cls.config.get("token")
@@ -142,8 +139,6 @@ class TestGitHubAPI(unittest.TestCase):
         
         print(f"成功获取文件内容: {file_path}")
         print(f"文件长度: {len(file_content)} 字符")
-        # 打印文件前100个字符
-        print(f"文件前100个字符: {file_content[:100]}...")
 
 
 if __name__ == '__main__':

@@ -85,14 +85,9 @@ class DataExtractor:
         """
         commits_list = []
         count = 0
-        max_commits = self.limits.get('max_commits', 1000)  # 从限制配置中获取
         
         for commit in commits:
             try:
-                # 检查是否超过限制
-                if count >= max_commits:
-                    print(f"已达到Commits获取限制 ({max_commits}个)")
-                    break
                 
                 commit_data = {
                     "sha": commit.sha,

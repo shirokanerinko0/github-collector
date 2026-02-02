@@ -57,7 +57,7 @@ def main():
     
     # 1. 采集Issues数据
     print("\n开始采集Issues数据...")
-    issues = github_api.get_issues(repo, state="all")
+    issues = github_api.get_issues(repo, state=CONFIG["issue_state"],labels=CONFIG["filter_labels"])
     issues_list = extractor.extract_issues(issues)
     print(f"采集到 {len(issues_list)} 个Issues")
     
