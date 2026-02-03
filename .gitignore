@@ -9,7 +9,8 @@ __pycache__/
 
 # 数据文件
 data/
-
+output/
+*.bin
 # 测试数据文件
 *test.json
 githubapitest.py
