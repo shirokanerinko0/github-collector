@@ -1,30 +1,30 @@
 /**
- * 测试接口
+ * Test interface
  */
 interface TestInterface {
     /**
-     * 执行操作
-     * @param value 操作值
-     * @return 操作结果
+     * Execute operation
+     * @param value Operation value
+     * @return Operation result
      */
     int execute(int value);
 
     /**
-     * 获取状态
-     * @return 状态
+     * Get status
+     * @return Status
      */
     String getStatus();
 }
 
 /**
- * 接口实现类
+ * Interface implementation class
  */
 class InterfaceImpl implements TestInterface {
     private int count;
     private String status;
 
     /**
-     * 构造方法
+     * Constructor
      */
     public InterfaceImpl() {
         this.count = 0;
@@ -32,9 +32,9 @@ class InterfaceImpl implements TestInterface {
     }
 
     /**
-     * 执行操作
-     * @param value 操作值
-     * @return 操作结果
+     * Execute operation
+     * @param value Operation value
+     * @return Operation result
      */
     @Override
     public int execute(int value) {
@@ -45,8 +45,8 @@ class InterfaceImpl implements TestInterface {
     }
 
     /**
-     * 获取状态
-     * @return 状态
+     * Get status
+     * @return Status
      */
     @Override
     public String getStatus() {
@@ -54,9 +54,9 @@ class InterfaceImpl implements TestInterface {
     }
 
     /**
-     * 处理值
-     * @param value 输入值
-     * @return 处理结果
+     * Process value
+     * @param value Input value
+     * @return Processing result
      */
     private int processValue(int value) {
         count += value;
@@ -65,8 +65,8 @@ class InterfaceImpl implements TestInterface {
     }
 
     /**
-     * 验证计数
-     * @param count 计数
+     * Validate count
+     * @param count Count
      */
     private void validateCount(int count) {
         if (count < 0) {
@@ -75,18 +75,18 @@ class InterfaceImpl implements TestInterface {
     }
 
     /**
-     * 更新状态
-     * @param newStatus 新状态
+     * Update status
+     * @param newStatus New status
      */
     private void updateStatus(String newStatus) {
         this.status = newStatus;
     }
 
     /**
-     * 记录操作
-     * @param operation 操作类型
-     * @param input 输入值
-     * @param output 输出值
+     * Log operation
+     * @param operation Operation type
+     * @param input Input value
+     * @param output Output value
      */
     private void logOperation(String operation, int input, int output) {
         System.out.println("Operation: " + operation + ", Input: " + input + ", Output: " + output);
@@ -94,12 +94,12 @@ class InterfaceImpl implements TestInterface {
 }
 
 /**
- * 测试主类
+ * Test main class
  */
 public class InterfaceTest {
     /**
-     * 主方法
-     * @param args 命令行参数
+     * Main method
+     * @param args Command line arguments
      */
     public static void main(String[] args) {
         TestInterface test = new InterfaceImpl();

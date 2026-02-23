@@ -1,13 +1,13 @@
 /**
- * 复杂测试类
+ * Complex test class
  */
 public class ComplexTest {
     private String[] names;
     private static final int MAX_SIZE = 100;
 
     /**
-     * 构造方法
-     * @param size 数组大小
+     * Constructor
+     * @param size Array size
      */
     public ComplexTest(int size) {
         if (size > MAX_SIZE) {
@@ -17,10 +17,10 @@ public class ComplexTest {
     }
 
     /**
-     * 添加名称
-     * @param index 索引
-     * @param name 名称
-     * @return 是否添加成功
+     * Add name
+     * @param index Index
+     * @param name Name
+     * @return Whether added successfully
      */
     public boolean addName(int index, String name) {
         if (validateIndex(index) && validateName(name)) {
@@ -32,9 +32,9 @@ public class ComplexTest {
     }
 
     /**
-     * 获取名称
-     * @param index 索引
-     * @return 名称
+     * Get name
+     * @param index Index
+     * @return Name
      */
     public String getName(int index) {
         if (validateIndex(index)) {
@@ -44,36 +44,36 @@ public class ComplexTest {
     }
 
     /**
-     * 验证索引
-     * @param index 索引
-     * @return 是否有效
+     * Validate index
+     * @param index Index
+     * @return Whether valid
      */
     private boolean validateIndex(int index) {
         return index >= 0 && index < names.length;
     }
 
     /**
-     * 验证名称
-     * @param name 名称
-     * @return 是否有效
+     * Validate name
+     * @param name Name
+     * @return Whether valid
      */
     private boolean validateName(String name) {
         return name != null && !name.isEmpty();
     }
 
     /**
-     * 记录操作
-     * @param operation 操作类型
-     * @param detail 详细信息
+     * Log operation
+     * @param operation Operation type
+     * @param detail Detail information
      */
     private void logOperation(String operation, String detail) {
         System.out.println("Operation: " + operation + ", Detail: " + detail);
     }
 
     /**
-     * 静态方法：获取最大值
-     * @param numbers 数字数组
-     * @return 最大值
+     * Static method: Get maximum value
+     * @param numbers Number array
+     * @return Maximum value
      */
     public static int getMaxValue(int[] numbers) {
         if (numbers == null || numbers.length == 0) {
@@ -89,15 +89,15 @@ public class ComplexTest {
     }
 
     /**
-     * 获取数组大小
-     * @return 数组大小
+     * Get array size
+     * @return Array size
      */
     public int getSize() {
         return names.length;
     }
 
     /**
-     * 清空数组
+     * Clear array
      */
     public void clear() {
         for (int i = 0; i < names.length; i++) {

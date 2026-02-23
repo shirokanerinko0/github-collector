@@ -1,29 +1,29 @@
 /**
- * 简单测试类
+ * Simple test class
  */
 public class SimpleTest {
     private int count;
 
     /**
-     * 构造方法
-     * @param initialCount 初始计数
+     * Constructor
+     * @param initialCount Initial count
      */
     public SimpleTest(int initialCount) {
-        // 验证初始计数是否有效
+        // Validate if initial count is valid
         this.count = initialCount;
     }
 
     /**
-     * 获取计数
-     * @return 当前计
+     * Get count
+     * @return Current count
      */
     public int getCount() {
         return count;
     }
 
     /**
-     * 设置计数
-     * @param count 新的计数
+     * Set count
+     * @param count New count
      */
     public void setCount(int count) {
         this.count = count;
@@ -31,8 +31,8 @@ public class SimpleTest {
     }
 
     /**
-     * 增加计数
-     * @param increment 增加量
+     * Increment count
+     * @param increment Increment amount
      */
     public void incrementCount(int increment) {
         count += increment;
@@ -41,8 +41,8 @@ public class SimpleTest {
     }
 
     /**
-     * 验证计数
-     * @param count 要验证的计数
+     * Validate count
+     * @param count Count to validate
      */
     private void validateCount(int count) {
         if (count < 0) {
@@ -51,9 +51,9 @@ public class SimpleTest {
     }
 
     /**
-     * 记录操作
-     * @param operation 操作类型
-     * @param value 操作值
+     * Log operation
+     * @param operation Operation type
+     * @param value Operation value
      */
     private void logOperation(String operation, int value) {
         System.out.println("Operation: " + operation + ", Value: " + value);

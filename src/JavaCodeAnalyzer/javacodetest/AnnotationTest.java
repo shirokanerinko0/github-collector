@@ -1,7 +1,7 @@
 import java.lang.annotation.*;
 
 /**
- * 测试注解提取功能的Java类
+ * Java class for testing annotation extraction functionality
  */
 @Deprecated
 @SuppressWarnings("unused")
@@ -9,8 +9,8 @@ public class AnnotationTest {
     private int value;
 
     /**
-     * 构造方法
-     * @param value 初始值
+     * Constructor
+     * @param value Initial value
      */
     @Override
     public AnnotationTest(int value) {
@@ -18,8 +18,8 @@ public class AnnotationTest {
     }
 
     /**
-     * 获取值
-     * @return 当前值
+     * Get value
+     * @return Current value
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -28,8 +28,8 @@ public class AnnotationTest {
     }
 
     /**
-     * 设置值
-     * @param value 新值
+     * Set value
+     * @param value New value
      */
     @Deprecated
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -38,7 +38,7 @@ public class AnnotationTest {
     }
 
     /**
-     * 自定义注解测试
+     * Custom annotation test
      */
     @MyAnnotation(name = "test", value = 100)
     public void testCustomAnnotation() {
@@ -46,7 +46,7 @@ public class AnnotationTest {
     }
 
     /**
-     * 静态方法测试
+     * Static method test
      */
     @SuppressWarnings("static-access")
     public static void staticMethod() {
@@ -56,7 +56,7 @@ public class AnnotationTest {
 }
 
 /**
- * 自定义注解
+ * Custom annotation
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

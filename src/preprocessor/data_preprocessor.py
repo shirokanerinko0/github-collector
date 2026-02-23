@@ -7,9 +7,11 @@
 
 import nltk
 import re
+import numpy as np
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-
+from src.utils.utils import load_config
+CONFIG = load_config()
 # 确保nltk停用词数据已下载
 try:
     nltk.data.find('corpora/stopwords')
@@ -31,6 +33,14 @@ try:
 except Exception as e:
     print(f"分词初始化失败，但将继续执行: {str(e)}")
 
+# 导入代码标识符处理器
+try:
+    from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
+    code_processor = CodeIdentifierProcessor()
+except Exception as e:
+    print(f"无法导入代码标识符处理器: {str(e)}")
+    code_processor = None
+
 
 class DataPreprocessor:
     """
@@ -43,6 +53,8 @@ class DataPreprocessor:
         """
         ## 初始化停用词列表
         self.stop_words = set(stopwords.words('english'))
+        ## 初始化代码处理器
+        self.code_processor = code_processor
     
     def preprocess_text(self, text):
         """
@@ -76,6 +88,106 @@ class DataPreprocessor:
         processed_text = ' '.join(filtered_tokens)
         
         return processed_text
+    
+    def get_tokens(self, text):
+        """
+        获取文本的分词结果
+        :param text: 原始文本
+        :return: 分词列表
+        """
+        if not text:
+            return []
+        
+        # 预处理文本
+        processed_text = self.preprocess_text(text)
+        
+        # 分词
+        try:
+            tokens = word_tokenize(processed_text)
+        except Exception as e:
+            print(f"分词失败: {str(e)}")
+            return []
+        
+        # 过滤停用词
+        filtered_tokens = [token for token in tokens if token not in self.stop_words]
+        
+        return filtered_tokens
+    
+    def vectorize_text(self, text):
+        """
+        向量化文本
+        :param text: 文本内容
+        :return: 向量化结果
+        """
+        if not text or not self.code_processor:
+            return []
+        
+        # 预处理文本
+        tokens = self.get_tokens(text)
+        
+        # 获取词向量
+        embeddings = self.code_processor.get_embeddings(tokens)
+        
+        return embeddings
+    
+    def calculate_boe(self, tokens):
+        """
+        计算Bag of Embeddings
+        :param tokens: 分词列表
+        :return: BOE结果
+        """
+        if not tokens or not self.code_processor:
+            return []
+        
+        # 获取词向量
+        embeddings = self.code_processor.get_embeddings(tokens)
+        
+        # 构建BOE
+        boe = []
+        for token, embedding in zip(tokens, embeddings):
+            # 计算权重（简单使用1.0）
+            weight = 1.0
+            boe.append({
+                "token": token,
+                "vector": embedding[:4],  # 只取前4个维度作为示例
+                "weight": weight
+            })
+        
+        return boe
+    
+    def preprocess_requirement(self, requirement):
+        """
+        预处理单个需求数据
+        :param requirement: 需求数据
+        :return: 预处理后的需求数据
+        """
+        processed_req = requirement.copy()
+        
+        # 1. 生成text_clean
+        title = requirement.get('title', '')
+        description = requirement.get('description', '')
+        full_text = f"{title}"
+        processed_req['text_clean'] = self.preprocess_text(full_text)
+        
+        # 2. 生成tokens
+        processed_req['tokens'] = self.get_tokens(full_text)
+        
+        # 3. 生成boe
+        processed_req['boe'] = self.calculate_boe(processed_req['tokens'])
+        
+        return processed_req
+    
+    def preprocess_requirements(self, requirements):
+        """
+        预处理需求列表
+        :param requirements: 需求列表
+        :return: 预处理后的需求列表
+        """
+        processed_requirements = []
+        for req in requirements:
+            processed_req = self.preprocess_requirement(req)
+            processed_requirements.append(processed_req)
+        return processed_requirements
     
     def preprocess_issues(self, issues):
         """

@@ -1,8 +1,8 @@
 public class CommentBraceTest {
     public void test() {
-        String s = "这里有个大括号 } 还有个 { 不应该结束";
+        String s = "Here's a brace } and another { that shouldn't end";
         char c = '}';
-        // 这里的 } 也不应该结束方法
+        // This } shouldn't end the method either
         if (true) {
             System.out.println("Inner");
         }

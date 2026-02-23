@@ -139,6 +139,103 @@ class TestGitHubAPI(unittest.TestCase):
         
         print(f"成功获取文件内容: {file_path}")
         print(f"文件长度: {len(file_content)} 字符")
+    
+    def test_get_commit_detail(self):
+        """
+        测试获取commit详细信息功能
+        """
+        print("\n测试获取commit详细信息功能...")
+        repo = self.github_api.get_repo(self.repo_owner, self.repo_name)
+        self.assertIsNotNone(repo, "无法获取仓库")
+        
+        # 获取最近的commits
+        commits = self.github_api.get_commits(repo)
+        self.assertIsNotNone(commits, "无法获取Commits")
+        self.assertGreater(len(commits), 0, "Commits列表为空")
+        
+        # 获取第一个commit的哈希值
+        commit_hash = commits[0].sha
+        print(f"测试commit哈希值: {commit_hash}")
+        
+        # 获取commit详细信息
+        commit_detail = self.github_api.get_commit_detail(repo, commit_hash)
+        self.assertIsNotNone(commit_detail, "无法获取commit详细信息")
+        
+        # 验证返回的数据结构
+        self.assertIn("sha", commit_detail, "返回数据中缺少sha字段")
+        self.assertIn("message", commit_detail, "返回数据中缺少message字段")
+        self.assertIn("author", commit_detail, "返回数据中缺少author字段")
+        self.assertIn("committer", commit_detail, "返回数据中缺少committer字段")
+        self.assertIn("stats", commit_detail, "返回数据中缺少stats字段")
+        self.assertIn("files", commit_detail, "返回数据中缺少files字段")
+        
+        # 验证sha匹配
+        self.assertEqual(commit_detail["sha"], commit_hash, "返回的sha与请求的不匹配")
+        
+        # 验证stats结构
+        self.assertIn("additions", commit_detail["stats"], "stats中缺少additions字段")
+        self.assertIn("deletions", commit_detail["stats"], "stats中缺少deletions字段")
+        self.assertIn("total", commit_detail["stats"], "stats中缺少total字段")
+        
+        # 验证files结构
+        self.assertIsInstance(commit_detail["files"], list, "files字段应该是列表")
+        
+        # 如果有文件变动，验证文件变动的结构
+        if commit_detail["files"]:
+            for file_change in commit_detail["files"]:
+                self.assertIn("filename", file_change, "文件变动中缺少filename字段")
+                self.assertIn("changes", file_change, "文件变动中缺少changes字段")
+                self.assertIn("additions", file_change, "文件变动中缺少additions字段")
+                self.assertIn("deletions", file_change, "文件变动中缺少deletions字段")
+                self.assertIn("status", file_change, "文件变动中缺少status字段")
+                self.assertIn("patch", file_change, "文件变动中缺少patch字段")
+        
+        print("成功获取commit详细信息")
+        print(f"提交信息: {commit_detail['message']}")
+        print(f"作者: {commit_detail['author']['name']}")
+        print(f"日期: {commit_detail['author']['date']}")
+        print(f"统计信息: +{commit_detail['stats']['additions']} -{commit_detail['stats']['deletions']}")
+        print(f"修改的文件数: {len(commit_detail['files'])}")
+        
+        # 打印前3个修改的文件
+        for file_change in commit_detail['files'][:3]:
+            print(f"  - {file_change['filename']} ({file_change['status']}): +{file_change['additions']} -{file_change['deletions']}")
+    
+    def test_get_pull_requests_with_commits(self):
+        """
+        测试获取PR信息（包含关联的commit列表）功能
+        """
+        print("\n测试获取PR信息（包含关联的commit列表）功能...")
+        repo = self.github_api.get_repo(self.repo_owner, self.repo_name)
+        self.assertIsNotNone(repo, "无法获取仓库")
+        
+        # 获取PR列表
+        prs = self.github_api.get_pull_requests(repo, state="all")
+        self.assertIsNotNone(prs, "无法获取Pull Requests")
+        self.assertGreater(len(prs), 0, "Pull Requests列表为空")
+        
+        print(f"获取到 {len(prs)} 个Pull Requests")
+        
+        # 验证每个PR对象的基本属性
+        for pr in prs:
+            print(f"\nPR #{pr.number}: {pr.title}")
+            self.assertIsNotNone(pr.number, "PR缺少number属性")
+            self.assertIsNotNone(pr.title, "PR缺少title属性")
+            self.assertIsNotNone(pr.state, "PR缺少state属性")
+            
+            # 尝试获取PR的commits（这里需要通过API直接获取，因为返回的是PR对象）
+            try:
+                commits = pr.get_commits()
+                commit_list = list(commits)
+                print(f"  关联的commits数量: {len(commit_list)}")
+                
+                # 验证commit列表
+                for commit in commit_list[:2]:  # 只打印前2个commits
+                    print(f"  - Commit: {commit.sha[:7]} - {commit.commit.message[:50]}...")
+                    self.assertIsNotNone(commit.sha, "Commit缺少sha属性")
+                    self.assertIsNotNone(commit.commit.message, "Commit缺少message属性")
+            except Exception as e:
+                print(f"  获取commits时出错: {str(e)}")
 
 
 if __name__ == '__main__':

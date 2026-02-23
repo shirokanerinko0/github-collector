@@ -83,10 +83,10 @@ class JavaCodeAnalyzer:
 
         # 2. 获取修饰符 (查找 modifiers 类型的子节点)
         modifiers = []
-        modifiers_node = class_node.child_by_field_name('modifiers')
-        if modifiers_node:
-            for mod in modifiers_node.children:
-                modifiers.append(self._get_text(mod))
+        for child in class_node.children:
+            if child.type == "modifiers":
+                for mod in child.children:
+                    modifiers.append(self._get_text(mod))
 
         # 5. 提取注解
         annotations = []
@@ -98,12 +98,6 @@ class JavaCodeAnalyzer:
                     # 检查是否是注解（包括 marker_annotation 和 annotation）
                     if mod_child.type in ['marker_annotation', 'annotation']:
                         annotations.append(self._get_text(mod_child))
-        # 检查 modifiers 节点
-        if modifiers_node:
-            for child in modifiers_node.children:
-                # 检查是否是注解（包括 marker_annotation 和 annotation）
-                if child.type in ['marker_annotation', 'annotation']:
-                    annotations.append(self._get_text(child))
 
         # 6. 提取类继承关系和接口实现关系
         extends = []
@@ -186,10 +180,10 @@ class JavaCodeAnalyzer:
 
         # 3. 修饰符
         modifiers = []
-        modifiers_node = method_node.child_by_field_name('modifiers')
-        if modifiers_node:
-            for mod in modifiers_node.children:
-                modifiers.append(self._get_text(mod))
+        for child in method_node.children:
+            if child.type == "modifiers":
+                for mod in child.children:
+                    modifiers.append(self._get_text(mod))
 
         # 4. 参数提取
         parameters = []
@@ -226,12 +220,6 @@ class JavaCodeAnalyzer:
                     # 检查是否是注解（包括 marker_annotation 和 annotation）
                     if mod_child.type in ['marker_annotation', 'annotation']:
                         annotations.append(self._get_text(mod_child))
-        # 检查 modifiers 节点
-        if modifiers_node:
-            for child in modifiers_node.children:
-                # 检查是否是注解（包括 marker_annotation 和 annotation）
-                if child.type in ['marker_annotation', 'annotation']:
-                    annotations.append(self._get_text(child))
 
         return {
             "name": method_name,

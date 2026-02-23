@@ -58,7 +58,7 @@ def main():
     # 1. 采集Issues数据
     print("\n开始采集Issues数据...")
     issues = github_api.get_issues(repo, state=CONFIG["issue_state"],labels=CONFIG["filter_labels"])
-    issues_list = extractor.extract_issues(issues)
+    issues_list = extractor.extract_issues(issues, github_api)
     print(f"采集到 {len(issues_list)} 个Issues")
     
     # 预处理Issues数据
@@ -86,7 +86,7 @@ def main():
     # 3. 采集Pull Requests数据
     print("\n开始采集Pull Requests数据...")
     prs = github_api.get_pull_requests(repo, state="all")
-    prs_list = extractor.extract_pull_requests(prs)
+    prs_list = extractor.extract_pull_requests(prs, github_api)
     print(f"采集到 {len(prs_list)} 个Pull Requests")
     
     # 预处理Pull Requests数据
@@ -97,7 +97,22 @@ def main():
     save_data(prs_list, f"{data_dir}/pull_requests_raw.json")
     save_data(processed_prs, f"{data_dir}/pull_requests_processed.json")
     
-    # 4. 采集文件数据
+    # 4. 提取和处理需求数据
+    print("\n开始提取和处理需求数据...")
+    project_name = f"{repo_owner}/{repo_name}"
+    requirements = extractor.extract_requirements(issues_list, prs_list, project_name)
+    print(f"提取到 {len(requirements)} 个需求")
+    
+    # 预处理需求数据
+    processed_requirements = preprocessor.preprocess_requirements(requirements)
+    print(f"预处理完成 {len(processed_requirements)} 个需求")
+    
+    # 保存需求数据
+    save_data(processed_requirements, f"{data_dir}/requirements_processed.json")
+    
+    print(f"需求数据已保存到: {data_dir}/requirements_processed.json")
+    
+    # 5. 采集文件数据
     
     # 按原仓库结构保存源代码文件
     print("\n开始保存源代码文件到origin_src目录...")

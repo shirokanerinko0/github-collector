@@ -2,114 +2,114 @@ public class NestedInnerClassTest {
     private int outerValue;
     
     /**
-     * 外部类构造方法
-     * @param value 初始值
+     * Outer class constructor
+     * @param value Initial value
      */
     public NestedInnerClassTest(int value) {
         this.outerValue = value;
     }
     
     /**
-     * 获取外部值
-     * @return 外部值
+     * Get outer value
+     * @return Outer value
      */
     public int getOuterValue() {
         return outerValue;
     }
     
     /**
-     * 第一层内部类
+     * First level inner class
      */
     public class FirstLevelInner {
         private int firstLevelValue;
         
         /**
-         * 第一层内部类构造方法
-         * @param value 初始值
+         * First level inner class constructor
+         * @param value Initial value
          */
         public FirstLevelInner(int value) {
             this.firstLevelValue = value;
         }
         
         /**
-         * 获取第一层内部值
-         * @return 第一层内部值
+         * Get first level inner value
+         * @return First level inner value
          */
         public int getFirstLevelValue() {
             return firstLevelValue;
         }
         
         /**
-         * 获取外部值（通过外部类引用）
-         * @return 外部值
+         * Get outer value (via outer class reference)
+         * @return Outer value
          */
         public int getOuterValueFromInner() {
             return NestedInnerClassTest.this.outerValue;
         }
         
         /**
-         * 第二层内部类
+         * Second level inner class
          */
         public class SecondLevelInner {
             private int secondLevelValue;
             
             /**
-             * 第二层内部类构造方法
-             * @param value 初始值
+             * Second level inner class constructor
+             * @param value Initial value
              */
             public SecondLevelInner(int value) {
                 this.secondLevelValue = value;
             }
             
             /**
-             * 获取第二层内部值
-             * @return 第二层内部值
+             * Get second level inner value
+             * @return Second level inner value
              */
             public int getSecondLevelValue() {
                 return secondLevelValue;
             }
             
             /**
-             * 获取第一层内部值
-             * @return 第一层内部值
+             * Get first level inner value
+             * @return First level inner value
              */
             public int getFirstLevelValueFromInner() {
                 return FirstLevelInner.this.firstLevelValue;
             }
             
             /**
-             * 获取外部值
-             * @return 外部值
+             * Get outer value
+             * @return Outer value
              */
             public int getOuterValueFromDeepInner() {
                 return NestedInnerClassTest.this.outerValue;
             }
             
             /**
-             * 第三层内部类
+             * Third level inner class
              */
             public class ThirdLevelInner {
                 private int thirdLevelValue;
                 
                 /**
-                 * 第三层内部类构造方法
-                 * @param value 初始值
+                 * Third level inner class constructor
+                 * @param value Initial value
                  */
                 public ThirdLevelInner(int value) {
                     this.thirdLevelValue = value;
                 }
                 
                 /**
-                 * 获取第三层内部值
-                 * @return 第三层内部值
+                 * Get third level inner value
+                 * @return Third level inner value
                  */
                 public int getThirdLevelValue() {
                     return thirdLevelValue;
                 }
                 
                 /**
-                 * 获取所有层级的值
-                 * @return 值的字符串表示
+                 * Get all levels values
+                 * @return String representation of values
                  */
                 public String getAllLevelsValues() {
                     return "Outer: " + NestedInnerClassTest.this.outerValue + 
@@ -122,44 +122,44 @@ public class NestedInnerClassTest {
     }
     
     /**
-     * 静态内部类
+     * Static inner class
      */
     public static class StaticInnerClass {
         private static int staticValue;
         
         /**
-         * 设置静态值
-         * @param value 新值
+         * Set static value
+         * @param value New value
          */
         public static void setStaticValue(int value) {
             staticValue = value;
         }
         
         /**
-         * 获取静态值
-         * @return 静态值
+         * Get static value
+         * @return Static value
          */
         public static int getStaticValue() {
             return staticValue;
         }
         
         /**
-         * 静态内部类中的静态内部类
+         * Static inner class within static inner class
          */
         public static class NestedStaticInner {
             private static int nestedStaticValue;
             
             /**
-             * 设置嵌套静态值
-             * @param value 新值
+             * Set nested static value
+             * @param value New value
              */
             public static void setNestedStaticValue(int value) {
                 nestedStaticValue = value;
             }
             
             /**
-             * 获取嵌套静态值
-             * @return 嵌套静态值
+             * Get nested static value
+             * @return Nested static value
              */
             public static int getNestedStaticValue() {
                 return nestedStaticValue;

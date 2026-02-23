@@ -3,9 +3,9 @@ public class MultipleClassesTest {
     private int value;
     
     /**
-     * 构造方法
-     * @param name 名称
-     * @param value 值
+     * Constructor
+     * @param name Name
+     * @param value Value
      */
     public MultipleClassesTest(String name, int value) {
         this.name = name;
@@ -13,25 +13,25 @@ public class MultipleClassesTest {
     }
     
     /**
-     * 获取名称
-     * @return 名称
+     * Get name
+     * @return Name
      */
     public String getName() {
         return name;
     }
     
     /**
-     * 设置值
-     * @param value 新值
+     * Set value
+     * @param value New value
      */
     public void setValue(int value) {
         this.value = value;
     }
     
     /**
-     * 执行操作
-     * @param factor 因子
-     * @return 操作结果
+     * Execute operation
+     * @param factor Factor
+     * @return Operation result
      */
     public int executeOperation(int factor) {
         return value * factor;
@@ -40,19 +40,19 @@ public class MultipleClassesTest {
 
 class HelperClass {
     /**
-     * 辅助方法：计算最大值
-     * @param a 第一个值
-     * @param b 第二个值
-     * @return 最大值
+     * Helper method: Calculate maximum value
+     * @param a First value
+     * @param b Second value
+     * @return Maximum value
      */
     public static int getMax(int a, int b) {
         return a > b ? a : b;
     }
     
     /**
-     * 辅助方法：检查是否为空
-     * @param str 字符串
-     * @return 是否为空
+     * Helper method: Check if empty
+     * @param str String
+     * @return Whether empty
      */
     public static boolean isEmpty(String str) {
         return str == null || str.isEmpty();
@@ -63,18 +63,18 @@ class UtilityClass {
     private static final String DEFAULT_PREFIX = "UTIL_";
     
     /**
-     * 生成带前缀的字符串
-     * @param input 输入字符串
-     * @return 带前缀的字符串
+     * Generate prefixed string
+     * @param input Input string
+     * @return Prefixed string
      */
     public static String addPrefix(String input) {
         return DEFAULT_PREFIX + input;
     }
     
     /**
-     * 计算平方
-     * @param number 数字
-     * @return 平方值
+     * Calculate square
+     * @param number Number
+     * @return Square value
      */
     public static int square(int number) {
         return number * number;

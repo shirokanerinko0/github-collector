@@ -48,16 +48,17 @@ class DataExtractor:
         if limits:
             self.limits.update(limits)
     
-    def extract_issues(self, issues):
+    def extract_issues(self, issues, github_api=None):
         """
         从Issues迭代器中抽取信息
         :param issues: Issues迭代器
+        :param github_api: GitHubAPI实例，用于获取commit引用
         :return: Issues列表
         """
         issues_list = []
         for issue in issues:
             try:
-                issues_list.append({
+                issue_data = {
                     "id": issue.id,
                     "number": issue.number,
                     "title": issue.title or "",
@@ -68,8 +69,15 @@ class DataExtractor:
                     "updated_at": issue.updated_at,
                     "labels": [label.name for label in issue.labels],
                     "user": issue.user.login if issue.user else "",
-                    "assignee": issue.assignee.login if issue.assignee else None
-                })
+                    "assignee": issue.assignee.login if issue.assignee else None,
+                    "commit_refs": []
+                }
+                
+                # 获取commit引用
+                if github_api:
+                    issue_data["commit_refs"] = github_api.get_issue_commit_refs(issue)
+                
+                issues_list.append(issue_data)
             except Exception as item_error:
                 print(f"处理Issue #{issue.number} 时出错: {str(item_error)}")
                 import traceback
@@ -125,16 +133,17 @@ class DataExtractor:
         
         return commits_list
     
-    def extract_pull_requests(self, prs):
+    def extract_pull_requests(self, prs, github_api=None):
         """
         从Pull Requests迭代器中抽取信息
         :param prs: Pull Requests迭代器
+        :param github_api: GitHubAPI实例，用于获取commit引用
         :return: Pull Requests列表
         """
         prs_list = []
         for pr in prs:
             try:
-                prs_list.append({
+                pr_data = {
                     "id": pr.id,
                     "number": pr.number,
                     "title": pr.title or "",
@@ -149,14 +158,97 @@ class DataExtractor:
                     "head": pr.head.ref,
                     "base": pr.base.ref,
                     "merged": pr.merged,
-                    "merge_commit_sha": pr.merge_commit_sha
-                })
+                    "merge_commit_sha": pr.merge_commit_sha,
+                    "commit_refs": []
+                }
+                
+                # 获取PR关联的commits
+                try:
+                    commits = pr.get_commits()
+                    commit_refs = []
+                    for commit in commits:
+                        commit_refs.append({
+                            "event_id": f"pr_{pr.number}_commit_{commit.sha[:7]}",
+                            "event_type": "commit",
+                            "commit_sha": commit.sha,
+                            "author": commit.commit.author.name if commit.commit.author else None,
+                            "message": commit.commit.message,
+                            "url": commit.html_url,
+                            "created_at": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
+                        })
+                    pr_data["commit_refs"] = commit_refs
+                except Exception as e:
+                    print(f"获取PR #{pr.number} 的commits失败: {str(e)}")
+                
+                prs_list.append(pr_data)
             except Exception as item_error:
                 print(f"处理PR #{pr.number} 时出错: {str(item_error)}")
                 import traceback
                 traceback.print_exc()
                 continue
         return prs_list
+    
+    def extract_requirements(self, issues=[], prs=[], project=""):
+        """
+        从Issues和PRs中提取需求数据
+        :param issues: Issues列表
+        :param prs: PRs列表
+        :param project: 项目名称
+        :return: 需求列表
+        """
+        requirements = []
+        
+        # 处理Issues
+        for issue in issues:
+            try:
+                req_id = f"ISSUE-{issue['number']}"
+                req_data = {
+                    "req_id": req_id,
+                    "source": "GitHub Issue",
+                    "project": project,
+                    "title": issue['title'],
+                    "description": issue['body'],
+                    "type": "functional",  # 默认类型
+                    "status": issue['state'],
+                    "author": issue['user'],
+                    "created_at": issue['created_at'].isoformat() if issue['created_at'] else None,
+                    "labels": issue['labels'],
+                    "url": f"https://github.com/{project}/issues/{issue['number']}",
+                    "commit_refs": issue.get('commit_refs', [])
+                }
+                requirements.append(req_data)
+            except Exception as e:
+                print(f"处理Issue #{issue['number']} 时出错: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # 处理PRs
+        for pr in prs:
+            try:
+                req_id = f"PR-{pr['number']}"
+                req_data = {
+                    "req_id": req_id,
+                    "source": "GitHub Pull Request",
+                    "project": project,
+                    "title": pr['title'],
+                    "description": pr['body'],
+                    "type": "functional",  # 默认类型
+                    "status": pr['state'],
+                    "author": pr['user'],
+                    "created_at": pr['created_at'].isoformat() if pr['created_at'] else None,
+                    "labels": pr['labels'],
+                    "url": f"https://github.com/{project}/pull/{pr['number']}",
+                    "commit_refs": pr.get('commit_refs', [])
+                }
+                requirements.append(req_data)
+            except Exception as e:
+                print(f"处理PR #{pr['number']} 时出错: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        return requirements
     
     def extract_files(self, repo, path="."):
         """

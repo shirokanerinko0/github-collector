@@ -1,14 +1,14 @@
 /**
- * 测试类继承关系和接口实现关系
+ * Test class inheritance and interface implementation relationships
  */
 public class InheritanceTest {
     public static void main(String[] args) {
-        // 测试代码
+        // Test code
     }
 }
 
 /**
- * 基础父类
+ * Base parent class
  */
 class BaseClass {
     protected int value;
@@ -23,7 +23,7 @@ class BaseClass {
 }
 
 /**
- * 扩展基础父类
+ * Extend base parent class
  */
 class ExtendedClass extends BaseClass {
     private String name;
@@ -38,7 +38,7 @@ class ExtendedClass extends BaseClass {
 }
 
 /**
- * 接口
+ * Interface
  */
 interface MyInterface {
     void doSomething();
@@ -46,14 +46,14 @@ interface MyInterface {
 }
 
 /**
- * 另一个接口
+ * Another interface
  */
 interface AnotherInterface {
     void doAnotherThing();
 }
 
 /**
- * 实现单个接口
+ * Implement single interface
  */
 class InterfaceImpl implements MyInterface {
     @Override
@@ -68,7 +68,7 @@ class InterfaceImpl implements MyInterface {
 }
 
 /**
- * 实现多个接口
+ * Implement multiple interfaces
  */
 class MultipleInterfaceImpl implements MyInterface, AnotherInterface {
     @Override
@@ -88,7 +88,7 @@ class MultipleInterfaceImpl implements MyInterface, AnotherInterface {
 }
 
 /**
- * 继承并实现接口
+ * Inherit and implement interface
  */
 class ExtendedAndInterfaceImpl extends BaseClass implements MyInterface {
     @Override

@@ -227,7 +227,7 @@ class GitHubAPI:
     
     def get_pull_requests(self, repo, state="all"):
         """
-        获取仓库的Pull Requests
+        获取仓库的Pull Requests，包含关联的commit列表
         :param repo: 仓库对象
         :param state: PR状态 (open, closed, all)
         :return: Pull Requests列表
@@ -248,6 +248,24 @@ class GitHubAPI:
             if self.debug:
                 pulls_data = []
                 for pr in pulls_list:
+                    # 获取PR关联的commits
+                    pr_commits = []
+                    try:
+                        commits = pr.get_commits()
+                        for commit in commits:
+                            commit_info = {
+                                "sha": commit.sha,
+                                "message": commit.commit.message,
+                                "author": {
+                                    "name": commit.commit.author.name if commit.commit.author else None,
+                                    "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
+                                },
+                                "url": commit.html_url
+                            }
+                            pr_commits.append(commit_info)
+                    except Exception as e:
+                        print(f"获取PR {pr.number} 的commits失败: {str(e)}")
+                    
                     pulls_data.append({
                         "number": pr.number,
                         "title": pr.title,
@@ -257,7 +275,8 @@ class GitHubAPI:
                         "merged_at": pr.merged_at.isoformat() if pr.merged_at else None,
                         "user": pr.user.login if pr.user else None,
                         "head": pr.head.ref,
-                        "base": pr.base.ref
+                        "base": pr.base.ref,
+                        "commits": pr_commits
                     })
                 self._log_api_response(api_url, pulls_data)
                 # 重新获取pulls迭代器，因为之前的已经被消费
@@ -267,6 +286,80 @@ class GitHubAPI:
             import traceback
             traceback.print_exc()
             return []
+    
+    def get_commit_detail(self, repo, commit_hash):
+        """
+        获取commit的详细信息，包括文件具体变动
+        :param repo: 仓库对象
+        :param commit_hash: commit的SHA哈希值
+        :return: 包含commit详细信息的字典
+        """
+        api_url = f"https://api.github.com/repos/{repo.owner.login}/{repo.name}/commits/{commit_hash}"
+        
+        try:
+            commit = repo.get_commit(commit_hash)
+            
+            # 提取commit基本信息
+            commit_detail = {
+                "sha": commit.sha,
+                "message": commit.commit.message,
+                "author": {
+                    "name": commit.commit.author.name if commit.commit.author else None,
+                    "email": commit.commit.author.email if commit.commit.author else None,
+                    "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
+                },
+                "committer": {
+                    "name": commit.commit.committer.name if commit.commit.committer else None,
+                    "email": commit.commit.committer.email if commit.commit.committer else None,
+                    "date": commit.commit.committer.date.isoformat() if commit.commit.committer and commit.commit.committer.date else None
+                },
+                "url": commit.html_url,
+                "stats": {
+                    "additions": commit.stats.additions,
+                    "deletions": commit.stats.deletions,
+                    "total": commit.stats.total
+                },
+                "files": []
+            }
+            
+            # 提取文件变动信息
+            for file in commit.files:
+                file_change = {
+                    "filename": file.filename,
+                    "changes": file.changes,
+                    "additions": file.additions,
+                    "deletions": file.deletions,
+                    "status": file.status,
+                    "patch": file.patch,
+                    "blob_url": file.blob_url,
+                    "raw_url": file.raw_url,
+                    "contents_url": file.contents_url
+                }
+                commit_detail["files"].append(file_change)
+            
+            # 记录API响应
+            if self.debug:
+                # 只记录文件信息摘要，不记录完整的patch，避免日志过大
+                commit_data = commit_detail.copy()
+                commit_data["files"] = [
+                    {
+                        "filename": f["filename"],
+                        "changes": f["changes"],
+                        "additions": f["additions"],
+                        "deletions": f["deletions"],
+                        "status": f["status"],
+                        "patch": f["patch"]
+                    }
+                    for f in commit_data["files"]
+                ]
+                self._log_api_response(api_url, commit_data)
+            
+            return commit_detail
+        except Exception as e:
+            print(f"获取commit详细信息失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     def get_contents(self, repo, path="."):
         """
@@ -337,3 +430,72 @@ class GitHubAPI:
             import traceback
             traceback.print_exc()
             return None
+    
+    def get_issue_events(self, issue):
+        """
+        获取Issue的事件
+        :param issue: Issue对象
+        :return: 事件列表
+        """
+        api_url = issue.events_url
+        
+        try:
+            events = issue.get_events()
+            events_list = []
+            
+            for event in events:
+                events_list.append({
+                    "id": event.id,
+                    "event": event.event,
+                    "commit_id": event.commit_id,
+                    "created_at": event.created_at,
+                    "actor": event.actor.login if event.actor else None
+                })
+            
+            # 记录API响应
+            if self.debug:
+                self._log_api_response(api_url, events_list)
+            
+            return events_list
+        except Exception as e:
+            print(f"获取Issue事件失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def get_issue_commit_refs(self, issue):
+        """
+        获取Issue关联的commit引用
+        :param issue: Issue对象
+        :return: commit引用列表
+        """
+        try:
+            # 获取issue事件
+            events = issue.get_events()
+            commit_refs = []
+            
+            for event in events:
+                # 只处理引用了commit的事件
+                if event.commit_id:
+                    try:
+                        # 直接从事件中构建commit引用信息
+                        # 由于PyGitHub的Github对象没有get_commit方法，我们使用事件信息直接构建
+                        commit_refs.append({
+                            "event_id": event.id,
+                            "event_type": event.event,
+                            "commit_sha": event.commit_id,
+                            "author": None,  # 无法直接从事件中获取作者信息
+                            "message": f"Commit referenced in issue: {issue.title}",
+                            "url": f"https://github.com/{issue.repository.full_name}/commit/{event.commit_id}",
+                            "created_at": event.created_at.isoformat() if event.created_at else None
+                        })
+                    except Exception as e:
+                        print(f"处理commit {event.commit_id} 失败: {str(e)}")
+                        continue
+            
+            return commit_refs
+        except Exception as e:
+            print(f"获取Issue commit引用失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []

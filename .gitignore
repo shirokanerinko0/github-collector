@@ -3,6 +3,7 @@ config.json
 
 # IDE设置
 .vscode/
+.trae/*
 # 缓存文件
 __pycache__/
 *.pyc
