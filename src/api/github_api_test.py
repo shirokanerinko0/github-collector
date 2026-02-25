@@ -237,6 +237,35 @@ class TestGitHubAPI(unittest.TestCase):
             except Exception as e:
                 print(f"  获取commits时出错: {str(e)}")
 
+    def test_get_issue_commit_refs(self):
+        """
+        测试获取Issue关联的commit引用功能
+        """
+        print("\n测试获取Issue关联的commit引用功能...")
+        repo = self.github_api.get_repo(self.repo_owner, self.repo_name)
+        self.assertIsNotNone(repo, "无法获取仓库")
+        
+        # 获取Issue列表
+        issues = self.github_api.get_issues(repo, state="all")
+        self.assertIsNotNone(issues, "无法获取Issues")
+        self.assertGreater(len(issues), 0, "Issues列表为空")
+        for issue in issues[:2]:  # 只处理前2个Issue
+            print(f"\nIssue #{issue.number}: {issue.title}")
+            self.assertIsNotNone(issue.number, "Issue缺少number属性")
+            self.assertIsNotNone(issue.title, "Issue缺少title属性")
+            
+            # 获取关联的commit引用
+            commit_refs = self.github_api.get_issue_commit_refs(repo, issue)
+            self.assertIsNotNone(commit_refs, "无法获取commit引用")
+            print(f"  关联的commit引用数量: {len(commit_refs)}")
+            
+            # 验证每个commit引用的基本属性
+            for ref in commit_refs[:2]:  # 只验证前2个引用
+                print(f"  - Commit Ref: {ref['commit_sha'][:7]} - {ref['message'][:50]}...")
+                self.assertIsNotNone(ref['commit_sha'], "commit引用缺少commit_sha属性")
+                self.assertIsNotNone(ref['message'], "commit引用缺少message属性")
+        
+
 
 if __name__ == '__main__':
     """

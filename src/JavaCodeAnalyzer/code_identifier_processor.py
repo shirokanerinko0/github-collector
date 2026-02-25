@@ -1,3 +1,4 @@
+from src.fastText_model.model_manager import get_fasttext_model
 import fasttext
 import fasttext.util
 import numpy as np
@@ -23,16 +24,8 @@ class CodeIdentifierProcessor:
         """
         加载 fastText 词向量模型
         """
-        try:
-            model_path = CONFIG["fastText"]["model_path"]
-            if os.path.exists(model_path):
-                self.model = fasttext.load_model(model_path)
-                print(f"成功加载 fastText 模型: {model_path}")
-            else:
-                print(f"警告: fastText 模型文件不存在: {model_path}")
-                print("请先运行 fastText_test.py 下载模型")
-        except Exception as e:
-            print(f"加载 fastText 模型时出错: {e}")
+        self.model = get_fasttext_model()
+        
     
     def tokenize_identifier(self, identifier):
         """
@@ -132,61 +125,6 @@ class CodeIdentifierProcessor:
         
         return unique_tokens
     
-    def get_embeddings(self, tokens):
-        """
-        获取词语的词向量
-        
-        Args:
-            tokens (list): 词语列表
-            
-        Returns:
-            list: 词向量列表
-        """
-        if not self.model or not tokens:
-            return []
-        
-        embeddings = []
-        for token in tokens:
-            try:
-                vector = self.model.get_word_vector(token)
-                # 归一化向量
-                norm = np.linalg.norm(vector)
-                if norm > 0:
-                    vector = vector / norm
-                embeddings.append(vector.tolist())
-            except Exception as e:
-                print(f"获取词语 '{token}' 的词向量时出错: {e}")
-                # 对于无法获取词向量的词语，跳过
-                pass
-        
-        return embeddings
-    
-    def calculate_boe(self, identifier_tokens, comment_tokens):
-        """
-        计算 Bag-of-Embeddings
-        
-        Args:
-            identifier_tokens (list): 标识符分词结果
-            comment_tokens (list): 注释处理结果
-            
-        Returns:
-            list: 合并后的词向量列表
-        """
-        # 合并标识符和注释的词向量
-        all_tokens = identifier_tokens + comment_tokens
-        # 去重，保留顺序
-        seen = set()
-        unique_tokens = []
-        for token in all_tokens:
-            if token not in seen:
-                seen.add(token)
-                unique_tokens.append(token)
-        
-        # 获取词向量
-        embeddings = self.get_embeddings(unique_tokens)
-        
-        return embeddings
-    
     def enhance_json_with_vectors(self, json_data):
         """
         增强 JSON 数据，添加分词和词向量信息
@@ -210,19 +148,9 @@ class CodeIdentifierProcessor:
             class_comments = class_info.get('comments', '')
             class_comment_tokens = self.process_comments(class_comments)
             
-            # 3. 获取词向量
-            class_identifier_embeddings = self.get_embeddings(class_tokens)
-            class_comment_embeddings = self.get_embeddings(class_comment_tokens)
-            
-            # 4. 计算 BoE
-            class_boe = self.calculate_boe(class_tokens, class_comment_tokens)
-            
             # 5. 添加到类信息中
-            class_info['identifier_tokens'] = class_tokens
-            class_info['comment_tokens'] = class_comment_tokens
-            class_info['identifier_embeddings'] = class_identifier_embeddings
-            class_info['comment_embeddings'] = class_comment_embeddings
-            class_info['boe_embeddings'] = class_boe
+            class_info['class_name_tokens'] = class_tokens
+            class_info['class_comment_tokens'] = class_comment_tokens
             
             # 6. 处理每个方法
             if 'methods' in class_info:
@@ -235,19 +163,9 @@ class CodeIdentifierProcessor:
                     method_comments = method_info.get('comments', '')
                     method_comment_tokens = self.process_comments(method_comments)
                     
-                    # 获取词向量
-                    method_identifier_embeddings = self.get_embeddings(method_tokens)
-                    method_comment_embeddings = self.get_embeddings(method_comment_tokens)
-                    
-                    # 计算 BoE
-                    method_boe = self.calculate_boe(method_tokens, method_comment_tokens)
-                    
                     # 添加到方法信息中
-                    method_info['identifier_tokens'] = method_tokens
-                    method_info['comment_tokens'] = method_comment_tokens
-                    method_info['identifier_embeddings'] = method_identifier_embeddings
-                    method_info['comment_embeddings'] = method_comment_embeddings
-                    method_info['boe_embeddings'] = method_boe
+                    method_info['method_name_tokens'] = method_tokens
+                    method_info['method_comment_tokens'] = method_comment_tokens
         
         return json_data
     
@@ -307,13 +225,3 @@ if __name__ == "__main__":
     print(f"原始注释: {test_comments}")
     print(f"处理结果: {comment_tokens}")
     
-    # 测试词向量获取
-    if processor.model:
-        print("\n=== 测试词向量获取 ===")
-        test_tokens = ["execute", "operation", "value"]
-        embeddings = processor.get_embeddings(test_tokens)
-        print(f"测试词语: {test_tokens}")
-        print(f"词向量数量: {len(embeddings)}")
-        if embeddings:
-            print(f"词向量维度: {len(embeddings[0])}")
-            print(f"第一个词向量前10维: {embeddings[0][:10]}")

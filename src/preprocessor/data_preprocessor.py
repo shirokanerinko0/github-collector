@@ -130,30 +130,6 @@ class DataPreprocessor:
         
         return embeddings
     
-    def calculate_boe(self, tokens):
-        """
-        计算Bag of Embeddings
-        :param tokens: 分词列表
-        :return: BOE结果
-        """
-        if not tokens or not self.code_processor:
-            return []
-        
-        # 获取词向量
-        embeddings = self.code_processor.get_embeddings(tokens)
-        
-        # 构建BOE
-        boe = []
-        for token, embedding in zip(tokens, embeddings):
-            # 计算权重（简单使用1.0）
-            weight = 1.0
-            boe.append({
-                "token": token,
-                "vector": embedding[:4],  # 只取前4个维度作为示例
-                "weight": weight
-            })
-        
-        return boe
     
     def preprocess_requirement(self, requirement):
         """
@@ -171,9 +147,6 @@ class DataPreprocessor:
         
         # 2. 生成tokens
         processed_req['tokens'] = self.get_tokens(full_text)
-        
-        # 3. 生成boe
-        processed_req['boe'] = self.calculate_boe(processed_req['tokens'])
         
         return processed_req
     

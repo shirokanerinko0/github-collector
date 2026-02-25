@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from src.api.github_api import GitHubAPI
+from os import rename
+from src.utils.utils import load_config
 """
 数据抽取与解析层，负责从GitHub API返回的数据中抽取和解析信息
 """
 
 import os
 
-# 尝试从main.py导入全局配置变量
-try:
-    from main import CONFIG
-except ImportError:
-    CONFIG = None
-
+CONFIG = load_config()
 
 class DataExtractor:
     """
@@ -34,10 +32,10 @@ class DataExtractor:
         print(f"源代码文件扩展名: {self.source_code_extensions}")
         # 设置默认限制
         self.limits = {
-            'max_commits': 1000,
-            'max_issues': 1000,
-            'max_pull_requests': 1000,
-            'max_files': 1000
+            'max_commits': 100,
+            'max_issues': 100,
+            'max_pull_requests': 100,
+            'max_files': 100
         }
         
         # 首先使用配置文件中的limits值
@@ -48,7 +46,7 @@ class DataExtractor:
         if limits:
             self.limits.update(limits)
     
-    def extract_issues(self, issues, github_api=None):
+    def extract_issues(self, issues, github_api=None, repo=None):
         """
         从Issues迭代器中抽取信息
         :param issues: Issues迭代器
@@ -69,13 +67,12 @@ class DataExtractor:
                     "updated_at": issue.updated_at,
                     "labels": [label.name for label in issue.labels],
                     "user": issue.user.login if issue.user else "",
-                    "assignee": issue.assignee.login if issue.assignee else None,
-                    "commit_refs": []
+                    "assignee": issue.assignee.login if issue.assignee else None
                 }
                 
-                # 获取commit引用
+                # 获取影响的文件列表
                 if github_api:
-                    issue_data["commit_refs"] = github_api.get_issue_commit_refs(issue)
+                    issue_data["change_files"] = github_api.get_issue_change_files(repo, issue)
                 
                 issues_list.append(issue_data)
             except Exception as item_error:
@@ -85,55 +82,8 @@ class DataExtractor:
                 continue
         return issues_list
     
-    def extract_commits(self, commits):
-        """
-        从Commits迭代器中抽取信息
-        :param commits: Commits迭代器
-        :return: Commits列表
-        """
-        commits_list = []
-        count = 0
-        
-        for commit in commits:
-            try:
-                
-                commit_data = {
-                    "sha": commit.sha,
-                    "message": commit.commit.message or "",
-                    "url": commit.html_url
-                }
-                
-                # 安全获取作者信息
-                if commit.commit.author:
-                    commit_data["author"] = commit.commit.author.name or ""
-                    commit_data["email"] = commit.commit.author.email or ""
-                    commit_data["date"] = commit.commit.author.date
-                else:
-                    commit_data["author"] = None
-                    commit_data["email"] = None
-                    commit_data["date"] = None
-                
-                # 安全获取提交者信息
-                if commit.commit.committer:
-                    commit_data["committer"] = commit.commit.committer.name or ""
-                    commit_data["committer_email"] = commit.commit.committer.email or ""
-                    commit_data["committer_date"] = commit.commit.committer.date
-                else:
-                    commit_data["committer"] = None
-                    commit_data["committer_email"] = None
-                    commit_data["committer_date"] = None
-                
-                commits_list.append(commit_data)
-                count += 1
-            except Exception as item_error:
-                print(f"处理Commit {commit.sha} 时出错: {str(item_error)}")
-                import traceback
-                traceback.print_exc()
-                continue
-        
-        return commits_list
     
-    def extract_pull_requests(self, prs, github_api=None):
+    def extract_pull_requests(self, prs, github_api=None, repo=None):
         """
         从Pull Requests迭代器中抽取信息
         :param prs: Pull Requests迭代器
@@ -158,27 +108,12 @@ class DataExtractor:
                     "head": pr.head.ref,
                     "base": pr.base.ref,
                     "merged": pr.merged,
-                    "merge_commit_sha": pr.merge_commit_sha,
-                    "commit_refs": []
+                    "merge_commit_sha": pr.merge_commit_sha
                 }
                 
-                # 获取PR关联的commits
-                try:
-                    commits = pr.get_commits()
-                    commit_refs = []
-                    for commit in commits:
-                        commit_refs.append({
-                            "event_id": f"pr_{pr.number}_commit_{commit.sha[:7]}",
-                            "event_type": "commit",
-                            "commit_sha": commit.sha,
-                            "author": commit.commit.author.name if commit.commit.author else None,
-                            "message": commit.commit.message,
-                            "url": commit.html_url,
-                            "created_at": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
-                        })
-                    pr_data["commit_refs"] = commit_refs
-                except Exception as e:
-                    print(f"获取PR #{pr.number} 的commits失败: {str(e)}")
+                # 获取PR影响的文件列表
+                if github_api:
+                    pr_data["change_files"] = github_api.get_pr_change_files(repo, pr)
                 
                 prs_list.append(pr_data)
             except Exception as item_error:
@@ -188,16 +123,15 @@ class DataExtractor:
                 continue
         return prs_list
     
-    def extract_requirements(self, issues=[], prs=[], project=""):
+    def extract_requirements(self, issues=[], prs=[]):
         """
         从Issues和PRs中提取需求数据
         :param issues: Issues列表
         :param prs: PRs列表
-        :param project: 项目名称
         :return: 需求列表
         """
         requirements = []
-        
+        project = f"{CONFIG['owner']}/{CONFIG['repo']}"
         # 处理Issues
         for issue in issues:
             try:
@@ -205,7 +139,7 @@ class DataExtractor:
                 req_data = {
                     "req_id": req_id,
                     "source": "GitHub Issue",
-                    "project": project,
+                    "repository": project,
                     "title": issue['title'],
                     "description": issue['body'],
                     "type": "functional",  # 默认类型
@@ -214,7 +148,7 @@ class DataExtractor:
                     "created_at": issue['created_at'].isoformat() if issue['created_at'] else None,
                     "labels": issue['labels'],
                     "url": f"https://github.com/{project}/issues/{issue['number']}",
-                    "commit_refs": issue.get('commit_refs', [])
+                    "change_files": issue.get('change_files', [])
                 }
                 requirements.append(req_data)
             except Exception as e:
@@ -239,7 +173,7 @@ class DataExtractor:
                     "created_at": pr['created_at'].isoformat() if pr['created_at'] else None,
                     "labels": pr['labels'],
                     "url": f"https://github.com/{project}/pull/{pr['number']}",
-                    "commit_refs": pr.get('commit_refs', [])
+                    "change_files": pr.get('change_files', [])
                 }
                 requirements.append(req_data)
             except Exception as e:
@@ -250,38 +184,7 @@ class DataExtractor:
         
         return requirements
     
-    def extract_files(self, repo, path="."):
-        """
-        递归获取仓库中的所有文件
-        :param repo: 仓库对象
-        :param path: 起始路径
-        :return: 文件列表
-        """
-        try:
-            from src.api.github_api import GitHubAPI
-            api = GitHubAPI("dummy_token")  # 仅用于调用方法，不需要实际认证
-            contents = api.get_contents(repo, path)
-            files_list = []
-            
-            for content in contents:
-                if content.type == "dir":
-                    # 递归处理子目录
-                    files_list.extend(self.extract_files(repo, content.path))
-                else:
-                    # 处理文件
-                    files_list.append({
-                        "path": content.path,
-                        "name": content.name,
-                        "type": content.type,
-                        "size": content.size,
-                        "download_url": content.download_url
-                    })
-            return files_list
-        except Exception as e:
-            print(f"获取文件失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return []
+
     
     def filter_source_files(self, files):
         """
@@ -309,14 +212,14 @@ class DataExtractor:
     
     def save_source_files(self, repo, target_dir):
         """
-        按原仓库结构保存源代码文件
+        按原仓库结构保存源代码文件,并返回保存的文件数量
         :param repo: 仓库对象
         :param target_dir: 目标保存目录
         :return: 保存的文件数量
         """
         try:
             from src.api.github_api import GitHubAPI
-            api = GitHubAPI("dummy_token")  # 仅用于调用方法，不需要实际认证
+            api = GitHubAPI()  # 仅用于调用方法，不需要实际认证
             
             # 确保目标目录存在
             os.makedirs(target_dir, exist_ok=True)

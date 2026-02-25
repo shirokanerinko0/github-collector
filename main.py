@@ -4,11 +4,12 @@
 """
 主文件，整合各层功能模块
 """
-
+import os
 from src.utils.utils import load_config, save_data
 from src.api.github_api import GitHubAPI
 from src.extractor.data_extractor import DataExtractor
 from src.preprocessor.data_preprocessor import DataPreprocessor
+from src.trace_link.main import trace_links
 
 # 全局配置变量
 CONFIG = None
@@ -58,7 +59,7 @@ def main():
     # 1. 采集Issues数据
     print("\n开始采集Issues数据...")
     issues = github_api.get_issues(repo, state=CONFIG["issue_state"],labels=CONFIG["filter_labels"])
-    issues_list = extractor.extract_issues(issues, github_api)
+    issues_list = extractor.extract_issues(issues, github_api, repo)
     print(f"采集到 {len(issues_list)} 个Issues")
     
     # 预处理Issues数据
@@ -69,24 +70,11 @@ def main():
     save_data(issues_list, f"{data_dir}/issues_raw.json")
     save_data(processed_issues, f"{data_dir}/issues_processed.json")
     
-    # 2. 采集Commits数据
-    print("\n开始采集Commits数据...")
-    commits = github_api.get_commits(repo)
-    commits_list = extractor.extract_commits(commits)
-    print(f"采集到 {len(commits_list)} 个Commits")
-    
-    # 预处理Commits数据
-    processed_commits = preprocessor.preprocess_commits(commits_list)
-    print(f"预处理完成 {len(processed_commits)} 个Commits")
-    
-    # 保存Commits数据
-    save_data(commits_list, f"{data_dir}/commits_raw.json")
-    save_data(processed_commits, f"{data_dir}/commits_processed.json")
     
     # 3. 采集Pull Requests数据
     print("\n开始采集Pull Requests数据...")
-    prs = github_api.get_pull_requests(repo, state="all")
-    prs_list = extractor.extract_pull_requests(prs, github_api)
+    prs = github_api.get_pull_requests(repo, state="closed")
+    prs_list = extractor.extract_pull_requests(prs, github_api, repo)
     print(f"采集到 {len(prs_list)} 个Pull Requests")
     
     # 预处理Pull Requests数据
@@ -99,8 +87,7 @@ def main():
     
     # 4. 提取和处理需求数据
     print("\n开始提取和处理需求数据...")
-    project_name = f"{repo_owner}/{repo_name}"
-    requirements = extractor.extract_requirements(issues_list, prs_list, project_name)
+    requirements = extractor.extract_requirements(issues_list, prs_list)
     print(f"提取到 {len(requirements)} 个需求")
     
     # 预处理需求数据
@@ -117,11 +104,15 @@ def main():
     # 按原仓库结构保存源代码文件
     print("\n开始保存源代码文件到origin_src目录...")
     origin_src_dir = f"{data_dir}/origin_src"
-    saved_count = extractor.save_source_files(repo, origin_src_dir)
-    print(f"成功保存 {saved_count} 个源代码文件到 {origin_src_dir}")
+    # 如果文件夹已经存在，不用再下载
+    if os.path.exists(origin_src_dir):
+        print(f"文件夹 {origin_src_dir} 已存在，无需重复下载")
+    else:
+        saved_count = extractor.save_source_files(repo, origin_src_dir)
+        print(f"成功保存 {saved_count} 个源代码文件到 {origin_src_dir}")
     
     
-    print("\n数据采集、预处理和保存完成！")
+    print("\n数据采集、预处理和保存完成")
 
 
 if __name__ == "__main__":

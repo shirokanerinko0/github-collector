@@ -4,12 +4,15 @@
 """
 GitHub API访问层，负责与GitHub API的交互
 """
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from github import Github
 from src.utils.utils import load_config
 import github.Auth
 import json
-import os
 import logging
 from datetime import datetime
 
@@ -140,6 +143,7 @@ class GitHubAPI:
         api_url += params
         
         try:
+            ## 返回issues迭代器
             issues = repo.get_issues(state=state, labels=labels)
             issue_list = []
             count = 0
@@ -431,41 +435,10 @@ class GitHubAPI:
             traceback.print_exc()
             return None
     
-    def get_issue_events(self, issue):
-        """
-        获取Issue的事件
-        :param issue: Issue对象
-        :return: 事件列表
-        """
-        api_url = issue.events_url
-        
-        try:
-            events = issue.get_events()
-            events_list = []
-            
-            for event in events:
-                events_list.append({
-                    "id": event.id,
-                    "event": event.event,
-                    "commit_id": event.commit_id,
-                    "created_at": event.created_at,
-                    "actor": event.actor.login if event.actor else None
-                })
-            
-            # 记录API响应
-            if self.debug:
-                self._log_api_response(api_url, events_list)
-            
-            return events_list
-        except Exception as e:
-            print(f"获取Issue事件失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return []
-    
-    def get_issue_commit_refs(self, issue):
+    def get_issue_commit_refs(self, repo, issue):
         """
         获取Issue关联的commit引用
+        :param repo: 仓库对象
         :param issue: Issue对象
         :return: commit引用列表
         """
@@ -476,17 +449,15 @@ class GitHubAPI:
             
             for event in events:
                 # 只处理引用了commit的事件
-                if event.commit_id:
+                if event.commit_id is not None and self.is_commit_in_repo(repo, event.commit_id):
                     try:
-                        # 直接从事件中构建commit引用信息
-                        # 由于PyGitHub的Github对象没有get_commit方法，我们使用事件信息直接构建
+                        # 直接从事件中构建commit信息
                         commit_refs.append({
                             "event_id": event.id,
                             "event_type": event.event,
                             "commit_sha": event.commit_id,
-                            "author": None,  # 无法直接从事件中获取作者信息
                             "message": f"Commit referenced in issue: {issue.title}",
-                            "url": f"https://github.com/{issue.repository.full_name}/commit/{event.commit_id}",
+                            "commit_url": event.commit_url,
                             "created_at": event.created_at.isoformat() if event.created_at else None
                         })
                     except Exception as e:
@@ -499,3 +470,113 @@ class GitHubAPI:
             import traceback
             traceback.print_exc()
             return []
+
+    def is_commit_in_repo(self, repo, commit_hash):
+        """
+        判断给定的commit_hash是否属于指定的仓库
+        :param repo: 仓库对象
+        :param commit_hash: commit的SHA哈希值
+        :return: 如果commit属于该仓库返回True，否则返回False
+        """
+        api_url = f"https://api.github.com/repos/{repo.owner.login}/{repo.name}/commits/{commit_hash}"
+        
+        try:
+            # 尝试获取commit信息
+            repo.get_commit(commit_hash)
+            # 如果成功获取commit，说明commit属于该仓库
+            return True
+        except Exception as e:
+            # 如果获取失败，说明commit不属于该仓库
+            if self.debug:
+                error_data = {
+                    "error": str(e),
+                    "commit_hash": commit_hash,
+                    "repo": f"{repo.owner.login}/{repo.name}"
+                }
+                self._log_api_response(api_url, error_data)
+            return False
+
+    def get_issue_change_files (self, repo, issue):
+        """
+        获取Issue关联的提交中修改的文件
+        :param repo: 仓库对象
+        :param issue: Issue对象
+        :return: 修改文件列表
+        """
+        # 获取issue关联的commit引用
+        commit_refs = self.get_issue_commit_refs(repo, issue)
+        
+        modify_files = []
+        for ref in commit_refs:
+            commit_sha = ref['commit_sha']
+            try:
+                # 获取commit的修改文件
+                commit = repo.get_commit(commit_sha)
+                files = commit.files
+                for file in files:
+                    ## 只记录代码文件
+                    if file.filename.endswith(tuple(CONFIG["source_code_extensions"])):
+                        modify_files.append({
+                            "commit_sha": commit_sha,
+                            "file_path": file.filename,
+                            "status": file.status,
+                            "additions": file.additions,
+                            "deletions": file.deletions,
+                            "changes": file.changes,
+                            "patch": file.patch
+                        })
+            except Exception as e:
+                print(f"获取commit {commit_sha} 的修改文件失败: {str(e)}")
+                continue
+        
+        return modify_files
+
+    def get_pr_change_files(self, repo, pr):
+        """
+        获取Pull Request关联的提交中修改的文件
+        :param repo: 仓库对象
+        :param pr: Pull Request对象
+        :return: 修改文件列表
+        """
+        # 获取pr关联的commit引用
+        commit_refs = repo.get_pull(pr.number).get_commits()
+        
+        modify_files = []
+        for commit in commit_refs:
+            commit_sha = commit.sha
+            try:
+                # 获取commit的修改文件
+                commit = repo.get_commit(commit_sha)
+                files = commit.files
+                for file in files:
+                    ## 只记录代码文件
+                    if file.filename.endswith(tuple(CONFIG["source_code_extensions"])):
+                        modify_files.append({
+                            "commit_sha": commit_sha,
+                            "file_path": file.filename,
+                            "status": file.status,
+                            "additions": file.additions,
+                            "deletions": file.deletions,
+                            "changes": file.changes,
+                            "patch": file.patch
+                    })
+            except Exception as e:
+                print(f"获取commit {commit_sha} 的修改文件失败: {str(e)}")
+                continue
+        
+        return modify_files
+
+
+if __name__ == "__main__":
+    github_api = GitHubAPI(debug=True)
+    
+    # 测试获取Issue关联的提交中修改的文件
+    repo = github_api.get_repo(CONFIG["owner"], CONFIG["repo"])
+    issue = repo.get_issue(1)
+    modify_files = github_api.get_issue_change_files(repo, issue)
+    print(modify_files)
+    
+    # 测试获取Pull Request关联的提交中修改的文件
+    pr = repo.get_pull(5)
+    modify_files = github_api.get_pr_change_files(repo, pr)
+    print(modify_files)
