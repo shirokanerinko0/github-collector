@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.utils.utils import load_config
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
 from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
-from src.fastText_model.wmd_calculator import WMDCalculator
+from src.model.wmd_calculator import WMDCalculator
 from src.LLMapi.LLM_tset import check_requirement_code_relation
 
 CONFIG = load_config()
@@ -211,10 +211,11 @@ def trace_links():
         })
     
     # 保存结果
-    output_file = os.path.join('data', CONFIG['repo'], 'trace_links.json')
+    output_file = os.path.join('data', CONFIG['repo'],'trace_link'+
+                            ('_llm' if CONFIG['trace_link']['use_llm'] else '')+
+                            ('_scan_all_files' if CONFIG['trace_link']['scan_all_files_when_no_change_files'] else '')+'.json')
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
-        # 使用 separators 参数控制 JSON 输出格式，使 tokens 数组在一行显示
         json.dump(results, f, indent=2, ensure_ascii=False, separators=(',', ': '))
     
     print(f"\n追踪链接结果已保存到: {output_file}")

@@ -1,4 +1,4 @@
-from src.fastText_model.model_manager import get_fasttext_model
+from src.model.model_manager import get_fasttext_model
 import fasttext
 import fasttext.util
 import numpy as np

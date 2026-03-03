@@ -1,0 +1,24 @@
+{
+    "repo1": {
+        "owner": "json-iterator",
+        "repo": "java"
+    },
+    "repo2": {
+        "owner": "spring-projects",
+        "repo": "spring-petclinic"
+    },
+    "repo3": {
+        "owner": "square",
+        "repo": "okhttp"
+    },
+    "repo4": {
+        "owner": "google",
+        "repo": "guava",
+        "labels": [
+            "type=addition"
+        ],
+        "excluded_dirs": [
+            "guava-master/src/test"
+        ]
+    }
+}
