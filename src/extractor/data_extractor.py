@@ -34,8 +34,7 @@ class DataExtractor:
         self.limits = {
             'max_commits': 100,
             'max_issues': 100,
-            'max_pull_requests': 100,
-            'max_files': 100
+            'max_pull_requests': 100
         }
         
         # 首先使用配置文件中的limits值

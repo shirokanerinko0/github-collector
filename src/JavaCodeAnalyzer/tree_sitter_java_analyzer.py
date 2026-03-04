@@ -1,7 +1,12 @@
 import tree_sitter
 import tree_sitter_java
 import json
-import os
+import os,sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from src.utils.utils import load_config
+config = load_config()
+
+
 
 class JavaCodeAnalyzer:
     def __init__(self):
@@ -86,7 +91,9 @@ class JavaCodeAnalyzer:
         for child in class_node.children:
             if child.type == "modifiers":
                 for mod in child.children:
-                    modifiers.append(self._get_text(mod))
+                    # 跳过注解类型的节点，只添加真正的修饰符
+                    if mod.type not in ['marker_annotation', 'annotation']:
+                        modifiers.append(self._get_text(mod))
 
         # 5. 提取注解
         annotations = []
@@ -183,7 +190,9 @@ class JavaCodeAnalyzer:
         for child in method_node.children:
             if child.type == "modifiers":
                 for mod in child.children:
-                    modifiers.append(self._get_text(mod))
+                    # 跳过注解类型的节点，只添加真正的修饰符
+                    if mod.type not in ['marker_annotation', 'annotation']:
+                        modifiers.append(self._get_text(mod))
 
         # 4. 参数提取
         parameters = []
@@ -293,31 +302,44 @@ class JavaCodeAnalyzer:
             json.dump(data, f, indent=2, ensure_ascii=False)
         print(f"Result saved to: {filepath}")
 
-# --- 测试代码 ---
-if __name__ == "__main__":
+
+def analyze_directory(directory):
+    """
+    分析指定目录下的所有Java文件
+    分析结果保存在源代码同一目录下，文件名添加_analysis.json后缀
+    """
     analyzer = JavaCodeAnalyzer()
     
-    # 分析javacodetest目录中的所有Java文件
-    javacodetest_dir = "src/JavaCodeAnalyzer/javacodetest"
+    print(f"正在分析目录: {directory}")
+    print("=" * 60)
     
-    if os.path.exists(javacodetest_dir):
-        print(f"正在分析 {javacodetest_dir} 目录中的Java文件...\n")
-        
-        # 遍历目录中的所有.java文件
-        for filename in os.listdir(javacodetest_dir):
-            if filename.endswith(".java"):
-                file_path = os.path.join(javacodetest_dir, filename)
-                print(f"分析文件: {filename}")
-                
+    # 遍历目录及其子目录
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.java'):
+                file_path = os.path.join(root, file)
+                print(f"分析文件: {file_path}")
                 try:
                     # 分析文件
                     result = analyzer.analyze_file(file_path)
-                    
-                    # 保存结果
-                    output_file = f"output/tree_sitter_{filename.replace('.java', '_analysis.json')}"
+                    # 生成输出文件路径
+                    output_file = file_path.replace('.java', '_analysis.json')
+                    # 保存分析结果
                     analyzer.save_json(result, output_file)
                     print()
                 except Exception as e:
-                    print(f"分析文件 {filename} 时出错: {e}")
+                    print(f"分析文件 {file_path} 时出错: {e}")
+                    exit(1)
+    print("=" * 60)
+    print("分析完成！")
+
+# --- 测试代码 ---
+if __name__ == "__main__":
+
+    test_directory = f"data\\{config['repo']}\\origin_src"
+    
+    if os.path.exists(test_directory):
+        analyze_directory(test_directory)
     else:
-        print(f"目录 {javacodetest_dir} 不存在")
+        print(f"目录 {test_directory} 不存在")
+

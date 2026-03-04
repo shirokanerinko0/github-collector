@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.utils.utils import load_config
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
 from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
+from src.model.unixcoder import calculate_nl_code_similarity
 from src.model.wmd_calculator import WMDCalculator
 from src.LLMapi.LLM_tset import check_requirement_code_relation
 
@@ -57,7 +58,6 @@ def process_code_file(req, file_path):
         包含文件链接信息的列表
     """
     links = []
-    req_tokens = req.get('tokens', [])
     
     # 获取完整文件路径
     full_path = get_source_file_path(file_path)
@@ -78,13 +78,16 @@ def process_code_file(req, file_path):
         # 分词类名
         class_tokens = code_processor.tokenize_identifier(class_name)
         # 计算相似度（只计算类名标识符相似度）
-        similarity = calculate_similarity(req_tokens, class_tokens)
+        similarity = calculate_similarity(req.get('tokens', []), class_tokens)
+        
+        original_code = class_info.get("original_code", "")
         # 添加链接信息
         links.append({
             'file_path': file_path,
             'class_name': class_name,
             'class_tokens': class_tokens,
-            'similarity': similarity
+            'similarity': similarity,
+            'original_code': original_code
         })
     
     return links
@@ -172,6 +175,57 @@ def check_requirement_code_relation_llm(req, file_path):
             'confidence': 0.0
         }
 
+
+def process_files_unixcoder(req, change_files):
+
+    import torch
+    from src.model.unixcoder import get_embeddings
+
+    links = []
+
+    pt_file_path = os.path.join('data', CONFIG['repo'], 'unixcoder_code_vectors.pt')
+    if not os.path.exists(pt_file_path):
+        print(f"文件不存在: {pt_file_path}")
+        return links
+
+    data = torch.load(pt_file_path)
+
+    # 构建需求文本
+    requirement_text = f"{req.get('title','')}\n{req.get('description','')}"
+
+    # 计算需求向量
+    req_embedding = get_embeddings([requirement_text])[0]
+
+    embeddings = data['embeddings']
+    device = req_embedding.device
+    embeddings = embeddings.to(device)
+
+    # 归一化（如果当初没做）
+    req_embedding = torch.nn.functional.normalize(req_embedding, dim=0)
+    embeddings = torch.nn.functional.normalize(embeddings, dim=1)
+
+    # 一次性算相似度
+    similarities = torch.matmul(
+        req_embedding.unsqueeze(0),
+        embeddings.T
+    ).squeeze(0)
+
+    k = min(5, embeddings.shape[0])
+    topk_scores, topk_indices = torch.topk(similarities, k=k)
+
+    for score, idx in zip(topk_scores, topk_indices):
+        idx = idx.item()
+
+        links.append({
+            'file_path': data['file_paths'][idx],
+            'class_name': data['class_names'][idx],
+            'method_name': data['method_names'][idx],
+            'similarity': score.item(),
+            'original_code': data['original_code'][idx]
+        })
+
+    return links
+
 def trace_links():
     """实现需求到代码的追踪链接"""
     print("开始实现需求到代码的追踪链接...")
@@ -191,7 +245,7 @@ def trace_links():
         print(f"\n处理需求: {req_id} - {req_title}")
         
         # 处理文件并计算相似度
-        links = process_files(req, change_files)
+        links = process_files_unixcoder(req, change_files)
         if(CONFIG['trace_link']['use_llm']):
             for link in links:
                 file_path = link['file_path']

@@ -1,6 +1,10 @@
 import torch
 import torch.nn.functional as F
-import model_manager
+import os,sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
+
+import src.model.model_manager as model_manager
 tokenizer = model_manager.get_unixcoder_tokenizer()
 model = model_manager.get_unixcoder_model()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
