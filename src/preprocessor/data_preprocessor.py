@@ -4,14 +4,24 @@
 """
 数据预处理与清洗层，负责对抽取的数据进行预处理和清洗
 """
-
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import nltk
 import re
 import numpy as np
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from src.utils.utils import load_config
+import json
 CONFIG = load_config()
+use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
+filter_invalid_issues = CONFIG["requirement_processing"]["filter_invalid_issues"]
+
+# 导入LLM处理函数
+if use_llm_processing:
+    from src.LLMapi.LLM_tset import process_requirement_text
+
 # 确保nltk停用词数据已下载
 try:
     nltk.data.find('corpora/stopwords')
@@ -113,23 +123,6 @@ class DataPreprocessor:
         
         return filtered_tokens
     
-    def vectorize_text(self, text):
-        """
-        向量化文本
-        :param text: 文本内容
-        :return: 向量化结果
-        """
-        if not text or not self.code_processor:
-            return []
-        
-        # 预处理文本
-        tokens = self.get_tokens(text)
-        
-        # 获取词向量
-        embeddings = self.code_processor.get_embeddings(tokens)
-        
-        return embeddings
-    
     
     def preprocess_requirement(self, requirement):
         """
@@ -148,6 +141,24 @@ class DataPreprocessor:
         # 2. 生成tokens
         processed_req['tokens'] = self.get_tokens(full_text)
         
+        # 3. 使用LLM处理需求文本
+        if use_llm_processing:
+            try:
+                req_id = requirement.get('req_id', '')
+                print(f"使用LLM处理需求 {req_id}...")
+                llm_result = process_requirement_text(title, description)
+                llm_data = json.loads(llm_result)
+                
+                # 添加LLM处理结果字段
+                processed_req["llm_category"] = llm_data.get("category")
+                processed_req["cleaned_summary"] = llm_data.get("cleaned_summary")
+                processed_req["llm_reason"] = llm_data.get("reason")
+                processed_req["type"] = llm_data.get("category", "functional")
+            except Exception as llm_error:
+                print(f"LLM处理需求 {req_id} 时出错: {str(llm_error)}")
+                import traceback
+                traceback.print_exc()
+        
         return processed_req
     
     def preprocess_requirements(self, requirements):
@@ -159,6 +170,14 @@ class DataPreprocessor:
         processed_requirements = []
         for req in requirements:
             processed_req = self.preprocess_requirement(req)
+            
+            # 如果配置了过滤无效需求且分类为INVALID，则跳过
+            if use_llm_processing and filter_invalid_issues:
+                if processed_req.get("llm_category") == "INVALID":
+                    req_id = processed_req.get('req_id', '')
+                    print(f"跳过无效需求 {req_id}")
+                    continue
+            
             processed_requirements.append(processed_req)
         return processed_requirements
     

@@ -58,3 +58,21 @@ def save_data(data, file_path):
         print(f"保存数据失败: {str(e)}")
         import traceback
         traceback.print_exc()
+
+
+## 读取json文件，返回List或dict
+def read_json_file(file_path):
+    """
+    读取json文件，返回List或dict
+    :param file_path: json文件路径
+    :return: json数据
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        print(f"读取json文件失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None

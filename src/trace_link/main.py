@@ -4,9 +4,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.utils.utils import load_config
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
 from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
-from src.model.unixcoder import calculate_nl_code_similarity
 from src.model.wmd_calculator import WMDCalculator
 from src.LLMapi.LLM_tset import check_requirement_code_relation
+from src.model.encoder_factory import EncoderFactory
 
 CONFIG = load_config()
 analyzer = JavaCodeAnalyzer()
@@ -28,14 +28,6 @@ def get_source_file_path(file_path):
     src_dir = os.path.join('data', CONFIG['repo'], 'origin_src')
     return os.path.join(src_dir, file_path)
 
-def analyze_code_file(file_path):
-    """分析代码文件并返回类信息"""
-    try:
-        return analyzer.analyze_file(file_path)
-    except Exception as e:
-        print(f"分析文件 {file_path} 时出错: {e}")
-        return {"classes": []}
-
 def calculate_similarity(req_tokens, code_tokens):
     """计算需求与代码的相似度"""
     if not req_tokens or not code_tokens:
@@ -47,94 +39,7 @@ def calculate_similarity(req_tokens, code_tokens):
         print(f"计算相似度时出错: {e}")
         return 0.0
 
-def process_code_file(req, file_path):
-    """处理单个代码文件并计算与需求的相似度
-    
-    Args:
-        req: 需求的字典，包含 'tokens' 键
-        file_path: 代码文件路径
-        
-    Returns:
-        包含文件链接信息的列表
-    """
-    links = []
-    
-    # 获取完整文件路径
-    full_path = get_source_file_path(file_path)
-    if not os.path.exists(full_path):
-        print(f"文件不存在: {full_path}")
-        return links
-    
-    print(f"分析文件: {file_path}")
-    
-    # 分析代码文件
-    code_analysis = analyze_code_file(full_path)
-    
-    # 处理每个类
-    for class_info in code_analysis.get('classes', []):
-        class_name = class_info.get('name')
-        if not class_name:
-            continue
-        # 分词类名
-        class_tokens = code_processor.tokenize_identifier(class_name)
-        # 计算相似度（只计算类名标识符相似度）
-        similarity = calculate_similarity(req.get('tokens', []), class_tokens)
-        
-        original_code = class_info.get("original_code", "")
-        # 添加链接信息
-        links.append({
-            'file_path': file_path,
-            'class_name': class_name,
-            'class_tokens': class_tokens,
-            'similarity': similarity,
-            'original_code': original_code
-        })
-    
-    return links
 
-def process_files(req, change_files):
-    """处理文件并计算与需求的相似度
-    
-    Args:
-        req: 需求的字典，包含 'tokens' 键
-        change_files: 变更文件列表
-        
-    Returns:
-        包含文件链接信息的列表，按相似度排序，最多返回前5个
-    """
-    links = []
-    set_files = set()
-    # 处理每个变更文件
-    for change_file in change_files:
-        file_path = change_file.get('file_path')
-        if file_path in set_files:
-            continue
-        if not file_path:
-            continue
-        set_files.add(file_path)
-        
-        # 使用 process_code_file 函数处理文件
-        file_links = process_code_file(req, file_path)
-        links.extend(file_links)
-    
-    # 当 change_files 为空且配置为 true 时，遍历所有源代码文件
-    scan_all_files = CONFIG.get('trace_link', {}).get('scan_all_files_when_no_change_files', False)
-    if not change_files and scan_all_files:
-        print("change_files 为空，遍历所有源代码文件...")
-        src_dir = os.path.join('data', CONFIG['repo'], 'origin_src')
-        
-        # 遍历所有 Java 文件
-        for root, dirs, files in os.walk(src_dir):
-            for file in files:
-                # 计算相对路径
-                file_path = os.path.relpath(os.path.join(root, file), src_dir)
-                # 使用 process_code_file 函数处理文件
-                file_links = process_code_file(req, file_path)
-                links.extend(file_links)
-    # 按相似度排序
-    links.sort(key=lambda x: x['similarity'], reverse=True)
-    # 只保留前5个最相似的链接
-    return links[:5]
 
 def check_requirement_code_relation_llm(req, file_path):
     """使用LLM判断需求和代码文件是否语义相关
@@ -176,14 +81,20 @@ def check_requirement_code_relation_llm(req, file_path):
         }
 
 
-def process_files_unixcoder(req, change_files):
+def process_files_with_encoder(req, change_files):
 
     import torch
-    from src.model.unixcoder import get_embeddings
+    import numpy as np
 
     links = []
 
-    pt_file_path = os.path.join('data', CONFIG['repo'], 'unixcoder_code_vectors.pt')
+    # 获取配置的模型名称
+    encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
+    
+    # 根据模型名称生成pt文件名
+    pt_file_name = f"{encode_model_name}_code_vectors.pt"
+    pt_file_path = os.path.join('data', CONFIG['repo'], pt_file_name)
+    
     if not os.path.exists(pt_file_path):
         print(f"文件不存在: {pt_file_path}")
         return links
@@ -193,8 +104,11 @@ def process_files_unixcoder(req, change_files):
     # 构建需求文本
     requirement_text = f"{req.get('title','')}\n{req.get('description','')}"
 
-    # 计算需求向量
-    req_embedding = get_embeddings([requirement_text])[0]
+    # 创建编码器并计算需求向量
+    print(f"正在使用编码器: {encode_model_name}")
+    encoder = EncoderFactory.create_encoder(encode_model_name)
+    req_embedding = encoder.encode([requirement_text])[0]
+    req_embedding = torch.tensor(req_embedding)
 
     embeddings = data['embeddings']
     device = req_embedding.device
@@ -245,7 +159,7 @@ def trace_links():
         print(f"\n处理需求: {req_id} - {req_title}")
         
         # 处理文件并计算相似度
-        links = process_files_unixcoder(req, change_files)
+        links = process_files_with_encoder(req, change_files)
         if(CONFIG['trace_link']['use_llm']):
             for link in links:
                 file_path = link['file_path']

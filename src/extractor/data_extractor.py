@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from src.utils.utils import read_json_file
 from src.api.github_api import GitHubAPI
 from os import rename
 from src.utils.utils import load_config
+import json
 """
 数据抽取与解析层，负责从GitHub API返回的数据中抽取和解析信息
 """
 
-import os
 
 CONFIG = load_config()
-
 class DataExtractor:
     """
     数据抽取与解析类，提供从GitHub API返回的数据中抽取信息的方法
@@ -141,7 +144,6 @@ class DataExtractor:
                     "repository": project,
                     "title": issue['title'],
                     "description": issue['body'],
-                    "type": "functional",  # 默认类型
                     "status": issue['state'],
                     "author": issue['user'],
                     "created_at": issue['created_at'].isoformat() if issue['created_at'] else None,
@@ -166,7 +168,6 @@ class DataExtractor:
                     "project": project,
                     "title": pr['title'],
                     "description": pr['body'],
-                    "type": "functional",  # 默认类型
                     "status": pr['state'],
                     "author": pr['user'],
                     "created_at": pr['created_at'].isoformat() if pr['created_at'] else None,
@@ -280,3 +281,7 @@ class DataExtractor:
             traceback.print_exc()
         
         return saved_count
+
+
+if __name__ == "__main__":
+    extractor = DataExtractor()

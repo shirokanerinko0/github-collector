@@ -13,6 +13,8 @@ fasttext_model = None   # 全局缓存
 sbert_model = None      # 全局缓存
 unixcoder_model = None  # 全局缓存
 unixcoder_tokenizer = None  # 全局缓存
+jina_code_model = None  # 全局缓存
+jina_embeddings_v2_model = None  # 全局缓存
 
 def get_unixcoder_model():
     global unixcoder_model
@@ -61,3 +63,29 @@ def get_sbert_model():
         print("SBERT 模型加载完成")
 
     return sbert_model
+
+
+def get_jina_code_model():
+    global jina_code_model
+    
+    if jina_code_model is None:
+        model_name = config.get("jina_code", {}).get("model_name", "jinaai/jina-code-embeddings-0.5b")
+        
+        print("正在加载 Jina Code Embeddings 模型...")
+        jina_code_model = SentenceTransformer(model_name, trust_remote_code=True)
+        print("Jina Code Embeddings 模型加载完成")
+    
+    return jina_code_model
+
+
+def get_jina_embeddings_v2_model():
+    global jina_embeddings_v2_model
+    
+    if jina_embeddings_v2_model is None:
+        model_name = config.get("jina_embeddings_v2", {}).get("model_name", "jinaai/jina-embeddings-v2-base-code")
+        
+        print("正在加载 Jina Embeddings V2 模型...")
+        jina_embeddings_v2_model = SentenceTransformer(model_name, trust_remote_code=True)
+        print("Jina Embeddings V2 模型加载完成")
+    
+    return jina_embeddings_v2_model

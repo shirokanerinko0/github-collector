@@ -2,23 +2,37 @@ import os
 import json
 import torch
 import sys
+import numpy as np
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from src.utils.utils import load_config
+from src.model.encoder_factory import EncoderFactory
 config = load_config()
-from src.model.unixcoder import get_embeddings
+##排除的目录路径
+exclude_dirs = config['exclude_dirs']
 
 def process_analysis_files(directory):
     """
     处理指定目录下的所有_analysis.json文件，计算方法向量并保存
     """
-    #如果存在.pt文件则直接加载，不重复计算
-    pt_file_path = os.path.join(os.path.dirname(directory), "unixcoder_code_vectors.pt")
+    # 获取配置的模型名称
+    encode_model_name = config.get("encode_model_name", "unixcoder")
+    
+    # 根据模型名称生成pt文件名
+    pt_file_name = f"{encode_model_name}_code_vectors.pt"
+    pt_file_path = os.path.join(os.path.dirname(directory), pt_file_name)
+    
+    # 如果存在.pt文件则直接加载，不重复计算
     if os.path.exists(pt_file_path):
-        print(f"目录 {directory} 已存在代码向量，跳过处理")
+        print(f"目录 {directory} 已存在代码向量 ({pt_file_name})，跳过处理")
         return
     
+    # 创建编码器
+    print(f"正在加载编码器: {encode_model_name}")
+    encoder = EncoderFactory.create_encoder(encode_model_name)
+    embedding_dim = encoder.get_embedding_dim()
+    print(f"编码器加载完成，嵌入维度: {embedding_dim}")
     # 初始化数据结构
     data = {
         "embeddings": [],
@@ -26,8 +40,8 @@ def process_analysis_files(directory):
         "method_names": [],
         "class_names": [],
         "original_code": [],
-        "model_name": "microsoft/unixcoder-base",
-        "dimension": 768
+        "model_name": encode_model_name,
+        "dimension": embedding_dim
     }
     
     print(f"正在处理目录: {directory}")
@@ -38,13 +52,16 @@ def process_analysis_files(directory):
         for file in files:
             if file.endswith('_analysis.json'):
                 file_path = os.path.join(root, file)
+                # 排除指定目录中的文件
+                if any(exclude_dir in file_path for exclude_dir in exclude_dirs):
+                    continue
+                
                 print(f"处理文件: {file_path}")
                 
                 try:
                     # 读取分析文件
                     with open(file_path, 'r', encoding='utf-8') as f:
                         analysis_data = json.load(f)
-                    
                     # 处理每个类
                     if analysis_data.get("classes"):
                         for cls in analysis_data["classes"]:
@@ -58,7 +75,8 @@ def process_analysis_files(directory):
                             # 添加类信息到数据结构
                             if class_code:
                                 # 计算类向量
-                                class_embedding = get_embeddings([class_code])[0]
+                                class_embedding = encoder.encode([class_code])[0]
+                                class_embedding = torch.tensor(class_embedding)
                                 
                                 # 添加到数据结构
                                 data["embeddings"].append(class_embedding)
@@ -74,7 +92,8 @@ def process_analysis_files(directory):
                                 
                                 if original_code:
                                     # 计算方法向量
-                                    embedding = get_embeddings([original_code])[0]
+                                    embedding = encoder.encode([original_code])[0]
+                                    embedding = torch.tensor(embedding)
                                     
                                     # 添加到数据结构
                                     data["embeddings"].append(embedding)
@@ -92,7 +111,7 @@ def process_analysis_files(directory):
         print(f"\n共处理 {len(data['embeddings'])} 个类和方法")
         
         # 保存为pt文件，与directory同一级
-        output_path = os.path.join(os.path.dirname(directory), "unixcoder_code_vectors.pt")
+        output_path = os.path.join(os.path.dirname(directory), pt_file_name)
         torch.save(data, output_path)
         print(f"向量文件保存到: {output_path}")
     else:
@@ -103,7 +122,7 @@ def process_analysis_files(directory):
 
 if __name__ == "__main__":
     # 测试目录
-    test_directory = f"d:\\OneDrive\\graduation_project\\TRae\\data\\{config['repo']}\\origin_src"
+    test_directory = f"data\\{config['repo']}\\origin_src"
     
     if os.path.exists(test_directory):
         process_analysis_files(test_directory)

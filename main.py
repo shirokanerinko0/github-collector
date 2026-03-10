@@ -89,15 +89,21 @@ def main():
     print("\n开始提取和处理需求数据...")
     requirements = extractor.extract_requirements(issues_list, prs_list)
     print(f"提取到 {len(requirements)} 个需求")
-    
+    # 保存需求数据
+    save_data(requirements, f"{data_dir}/requirements_raw.json")
     # 预处理需求数据
     processed_requirements = preprocessor.preprocess_requirements(requirements)
     print(f"预处理完成 {len(processed_requirements)} 个需求")
     
     # 保存需求数据
-    save_data(processed_requirements, f"{data_dir}/requirements_processed.json")
+    use_llm = CONFIG["requirement_processing"]["use_llm_processing"]
+    llm_suffix = "_llm" if use_llm else ""
+    req_file_name = f"requirements_processed{llm_suffix}.json"
+    req_file_path = f"{data_dir}/{req_file_name}"
     
-    print(f"需求数据已保存到: {data_dir}/requirements_processed.json")
+    save_data(processed_requirements, req_file_path)
+    
+    print(f"需求数据已保存到: {req_file_path}")
     
     # 5. 采集文件数据
     
