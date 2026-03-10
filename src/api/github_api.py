@@ -307,16 +307,6 @@ class GitHubAPI:
             commit_detail = {
                 "sha": commit.sha,
                 "message": commit.commit.message,
-                "author": {
-                    "name": commit.commit.author.name if commit.commit.author else None,
-                    "email": commit.commit.author.email if commit.commit.author else None,
-                    "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
-                },
-                "committer": {
-                    "name": commit.commit.committer.name if commit.commit.committer else None,
-                    "email": commit.commit.committer.email if commit.commit.committer else None,
-                    "date": commit.commit.committer.date.isoformat() if commit.commit.committer and commit.commit.committer.date else None
-                },
                 "url": commit.html_url,
                 "stats": {
                     "additions": commit.stats.additions,
@@ -539,30 +529,19 @@ class GitHubAPI:
         :return: 修改文件列表
         """
         # 获取pr关联的commit引用
-        commit_refs = repo.get_pull(pr.number).get_commits()
-        
+        files = repo.get_pull(pr.number).get_files()
         modify_files = []
-        for commit in commit_refs:
-            commit_sha = commit.sha
-            try:
-                # 获取commit的修改文件
-                commit = repo.get_commit(commit_sha)
-                files = commit.files
-                for file in files:
-                    ## 只记录代码文件
-                    if file.filename.endswith(tuple(CONFIG["source_code_extensions"])):
-                        modify_files.append({
-                            "commit_sha": commit_sha,
-                            "file_path": file.filename,
-                            "status": file.status,
-                            "additions": file.additions,
-                            "deletions": file.deletions,
-                            "changes": file.changes,
-                            "patch": file.patch
-                    })
-            except Exception as e:
-                print(f"获取commit {commit_sha} 的修改文件失败: {str(e)}")
-                continue
+        for file in files:
+            ## 只记录代码文件
+            if file.filename.endswith(tuple(CONFIG["source_code_extensions"])):
+                modify_files.append({
+                    "file_path": file.filename,
+                    "status": file.status,
+                    "additions": file.additions,
+                    "deletions": file.deletions,
+                    "changes": file.changes,
+                    "patch": file.patch
+            })
         
         return modify_files
 

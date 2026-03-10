@@ -3,7 +3,7 @@ import json
 import torch
 import sys
 import numpy as np
-
+from tqdm import tqdm
 # 添加项目根目录到Python路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from src.utils.utils import load_config
@@ -32,7 +32,7 @@ def process_analysis_files(directory):
     print(f"正在加载编码器: {encode_model_name}")
     encoder = EncoderFactory.create_encoder(encode_model_name)
     embedding_dim = encoder.get_embedding_dim()
-    print(f"编码器加载完成，嵌入维度: {embedding_dim}")
+    print(f"编码器加载完成，向量维度: {embedding_dim}")
     # 初始化数据结构
     data = {
         "embeddings": [],
@@ -46,7 +46,8 @@ def process_analysis_files(directory):
     
     print(f"正在处理目录: {directory}")
     print("=" * 60)
-    
+    # 过滤文件数量
+    exclude_count = 0
     # 遍历目录及其子目录
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -54,6 +55,7 @@ def process_analysis_files(directory):
                 file_path = os.path.join(root, file)
                 # 排除指定目录中的文件
                 if any(exclude_dir in file_path for exclude_dir in exclude_dirs):
+                    exclude_count += 1
                     continue
                 
                 print(f"处理文件: {file_path}")
@@ -86,29 +88,33 @@ def process_analysis_files(directory):
                                 data["original_code"].append(class_code)
                             
                             # 处理每个方法
-                            for method in cls.get("methods", []):
-                                method_name = method.get("name", "")
-                                original_code = method.get("original_code", "")
-                                
-                                if original_code:
-                                    # 计算方法向量
-                                    embedding = encoder.encode([original_code])[0]
-                                    embedding = torch.tensor(embedding)
+                            if config.get("analyze_by_method", False):
+                                for method in cls.get("methods", []):
+                                    method_name = method.get("name", "")
+                                    original_code = method.get("original_code", "")
                                     
-                                    # 添加到数据结构
-                                    data["embeddings"].append(embedding)
-                                    data["file_paths"].append(relative_path)
-                                    data["method_names"].append(method_name)
-                                    data["class_names"].append(class_name)
-                                    data["original_code"].append(original_code)
+                                    if original_code:
+                                        # 计算方法向量
+                                        embedding = encoder.encode([original_code])[0]
+                                        embedding = torch.tensor(embedding)
+                                        
+                                        # 添加到数据结构
+                                        data["embeddings"].append(embedding)
+                                        data["file_paths"].append(relative_path)
+                                        data["method_names"].append(method_name)
+                                        data["class_names"].append(class_name)
+                                        data["original_code"].append(original_code)
                     
                 except Exception as e:
                     print(f"处理文件 {file_path} 时出错: {e}")
     
+    #批量转换成embedding
+
+
     # 转换为张量
     if data["embeddings"]:
         data["embeddings"] = torch.stack(data["embeddings"])
-        print(f"\n共处理 {len(data['embeddings'])} 个类和方法")
+        print(f"\n共处理 {len(data['embeddings'])} 个类和方法，过滤 {exclude_count} 个文件")
         
         # 保存为pt文件，与directory同一级
         output_path = os.path.join(os.path.dirname(directory), pt_file_name)

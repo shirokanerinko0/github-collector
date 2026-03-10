@@ -20,7 +20,7 @@ filter_invalid_issues = CONFIG["requirement_processing"]["filter_invalid_issues"
 
 # 导入LLM处理函数
 if use_llm_processing:
-    from src.LLMapi.LLM_tset import process_requirement_text
+    from src.LLMapi.LLM_tset import process_requirement_text_llm
 
 # 确保nltk停用词数据已下载
 try:
@@ -146,19 +146,22 @@ class DataPreprocessor:
             try:
                 req_id = requirement.get('req_id', '')
                 print(f"使用LLM处理需求 {req_id}...")
-                llm_result = process_requirement_text(title, description)
+                llm_result = process_requirement_text_llm(title, description)
                 llm_data = json.loads(llm_result)
                 
                 # 添加LLM处理结果字段
                 processed_req["llm_category"] = llm_data.get("category")
                 processed_req["cleaned_summary"] = llm_data.get("cleaned_summary")
                 processed_req["llm_reason"] = llm_data.get("reason")
-                processed_req["type"] = llm_data.get("category", "functional")
+                processed_req["type"] = llm_data.get("category", "default")
             except Exception as llm_error:
                 print(f"LLM处理需求 {req_id} 时出错: {str(llm_error)}")
                 import traceback
                 traceback.print_exc()
-        
+        else:
+            processed_req["cleaned_summary"] = full_text
+            processed_req["type"] = "default"
+
         return processed_req
     
     def preprocess_requirements(self, requirements):

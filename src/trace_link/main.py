@@ -1,5 +1,6 @@
 import os,sys,json
-
+import torch
+import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
@@ -9,14 +10,13 @@ from src.LLMapi.LLM_tset import check_requirement_code_relation
 from src.model.encoder_factory import EncoderFactory
 
 CONFIG = load_config()
-analyzer = JavaCodeAnalyzer()
-code_processor = CodeIdentifierProcessor()
-wmd_calculator = WMDCalculator()
-
+encoder = None
+data = None
+use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
+encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
 def load_requirements():
     """加载处理后的需求数据"""
-    # 直接使用 repo 目录，因为文件结构是 data/{repo}/requirements_processed.json
-    req_file = os.path.join('data', CONFIG['repo'], 'requirements_processed.json')
+    req_file = os.path.join('data', CONFIG['repo'], 'requirements_processed'+('_llm' if use_llm_processing else '')+'.json')
     if os.path.exists(req_file):
         with open(req_file, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -28,24 +28,13 @@ def get_source_file_path(file_path):
     src_dir = os.path.join('data', CONFIG['repo'], 'origin_src')
     return os.path.join(src_dir, file_path)
 
-def calculate_similarity(req_tokens, code_tokens):
-    """计算需求与代码的相似度"""
-    if not req_tokens or not code_tokens:
-        return 0.0
-    try:
-        similarity = wmd_calculator.calculate_similarity(req_tokens, code_tokens)
-        return similarity if similarity is not None else 0.0
-    except Exception as e:
-        print(f"计算相似度时出错: {e}")
-        return 0.0
 
-
-
-def check_requirement_code_relation_llm(req, file_path):
+def check_requirement_code_relation_llm(req, file_path, code_snippet=""):
     """使用LLM判断需求和代码文件是否语义相关
     Args:
         req: 需求对象
         file_path: 代码文件路径
+        code_snippet: 代码片段，默认为空字符串，用于直接传递代码内容
     Returns:
         包含关系信息的字典
     """
@@ -83,30 +72,11 @@ def check_requirement_code_relation_llm(req, file_path):
 
 def process_files_with_encoder(req, change_files):
 
-    import torch
-    import numpy as np
-
     links = []
 
-    # 获取配置的模型名称
-    encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
-    
-    # 根据模型名称生成pt文件名
-    pt_file_name = f"{encode_model_name}_code_vectors.pt"
-    pt_file_path = os.path.join('data', CONFIG['repo'], pt_file_name)
-    
-    if not os.path.exists(pt_file_path):
-        print(f"文件不存在: {pt_file_path}")
-        return links
-
-    data = torch.load(pt_file_path)
-
     # 构建需求文本
-    requirement_text = f"{req.get('title','')}\n{req.get('description','')}"
+    requirement_text = req.get('cleaned_summary', '')
 
-    # 创建编码器并计算需求向量
-    print(f"正在使用编码器: {encode_model_name}")
-    encoder = EncoderFactory.create_encoder(encode_model_name)
     req_embedding = encoder.encode([requirement_text])[0]
     req_embedding = torch.tensor(req_embedding)
 
@@ -153,8 +123,6 @@ def trace_links():
     for req in requirements:
         req_id = req.get('req_id')
         req_title = req.get('title')
-        req_description = req.get('description')
-        req_tokens = req.get('tokens', [])
         change_files = req.get('change_files', [])
         print(f"\n处理需求: {req_id} - {req_title}")
         
@@ -172,9 +140,11 @@ def trace_links():
         results.append({
             'req_id': req_id,
             'req_title': req_title,
-            'req_description': req_description,
+            'req_description': req.get('description', ''),
+            'req_cleaned_summary': req.get('cleaned_summary', ''),
             'req_url': req.get('url', ''),
-            'req_tokens': req_tokens,
+            # 'req_tokens': req.get('tokens', []),
+            'req_type': req.get('type', 'default'),
             'links': links
         })
     
@@ -194,7 +164,26 @@ def trace_links():
         for link in result['links'][:3]:  # 只显示前3个最相似的链接
             print(f"  - 文件: {link['file_path']}, 类: {link['class_name']}, 相似度: {link['similarity']:.4f}")
 
+
+def get_data():
+    # 根据模型名称生成pt文件名
+    pt_file_name = f"{encode_model_name}_code_vectors.pt"
+    pt_file_path = os.path.join('data', CONFIG['repo'], pt_file_name)
+    if not os.path.exists(pt_file_path):
+        print(f"文件不存在: {pt_file_path}")
+        exit(1)
+    data_ = torch.load(pt_file_path)
+    return data_
+
+def get_encoder():
+    # 创建编码器并计算需求向量
+    print(f"正在使用编码器: {encode_model_name}")
+    encoder_ = EncoderFactory.create_encoder(encode_model_name)
+    return encoder_
+
 if __name__ == "__main__":
+    data = get_data()
+    encoder = get_encoder()
     trace_links()
 
 

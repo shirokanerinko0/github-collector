@@ -31,7 +31,7 @@ class JavaCodeAnalyzer:
         分析 Java 代码字符串
         """
         if not source_code:
-            return {"classes": []}
+            return {"classes": [], "source_code": ""}
 
         # 【核心修复】：将源码转换为 UTF-8 字节
         # Tree-sitter 的 start_byte/end_byte 是基于字节的，直接切片 Unicode 字符串会出错（特别是包含中文时）
@@ -41,7 +41,8 @@ class JavaCodeAnalyzer:
         tree = self.parser.parse(self.source_bytes)
         
         result = {
-            "classes": []
+            "classes": [],
+            "source_code": source_code
         }
 
         # 遍历根节点下的所有 class_declaration

@@ -61,7 +61,7 @@ Output in JSON format:
         return f"{{\"related\": false, \"reason\": \"API调用失败\", \"confidence\": 0.0}}"
 
 
-def process_requirement_text(title, body):
+def process_requirement_text_llm(title, body):
     """
     处理原始Issue文本，去噪提取和需求分类
     
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     print(result1)
     
     print("\n" + "=" * 60)
-    print("测试2: process_requirement_text - BUG类型")
+    print("测试2: process_requirement_text_llm - BUG类型")
     print("=" * 60)
     bug_title = "Bug: Login fails with valid credentials"
     bug_body = """
@@ -157,12 +157,12 @@ Environment:
 - Java 11
 - Spring Boot 2.5.0
 """
-    result2 = process_requirement_text(bug_title, bug_body)
+    result2 = process_requirement_text_llm(bug_title, bug_body)
     print("LLM Output:")
     print(result2)
     
     print("\n" + "=" * 60)
-    print("测试3: process_requirement_text - FR类型")
+    print("测试3: process_requirement_text_llm - FR类型")
     print("=" * 60)
     fr_title = "Feature Request: Add dark mode support"
     fr_body = """
@@ -170,12 +170,12 @@ It would be great to have a dark mode option for the application.
 Many users prefer dark themes for better readability at night.
 Thanks!
 """
-    result3 = process_requirement_text(fr_title, fr_body)
+    result3 = process_requirement_text_llm(fr_title, fr_body)
     print("LLM Output:")
     print(result3)
     
     print("\n" + "=" * 60)
-    print("测试4: process_requirement_text - NFR类型")
+    print("测试4: process_requirement_text_llm - NFR类型")
     print("=" * 60)
     nfr_title = "Performance: Optimize database queries"
     nfr_body = """
@@ -183,18 +183,18 @@ The current database queries are taking too long to execute.
 We need to optimize the queries and add proper indexing to improve performance.
 Also, consider upgrading to the latest version of MySQL.
 """
-    result4 = process_requirement_text(nfr_title, nfr_body)
+    result4 = process_requirement_text_llm(nfr_title, nfr_body)
     print("LLM Output:")
     print(result4)
     
     print("\n" + "=" * 60)
-    print("测试5: process_requirement_text - INVALID类型")
+    print("测试5: process_requirement_text_llm - INVALID类型")
     print("=" * 60)
     invalid_title = "How to use this library?"
     invalid_body = """
 I'm new to this library. Can someone please explain how to use it?
 Thanks in advance!
 """
-    result5 = process_requirement_text(invalid_title, invalid_body)
+    result5 = process_requirement_text_llm(invalid_title, invalid_body)
     print("LLM Output:")
     print(result5)

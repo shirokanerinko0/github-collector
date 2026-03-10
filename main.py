@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from src.model.calculate_code_vectors import process_analysis_files
+from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import analyze_directory
+from file_operations.download import download_repository_main
 """
 主文件，整合各层功能模块
 """
@@ -12,24 +15,22 @@ from src.preprocessor.data_preprocessor import DataPreprocessor
 from src.trace_link.main import trace_links
 
 # 全局配置变量
-CONFIG = None
-
+config = load_config()
 
 def main():
     """
     主函数，整合各层功能模块
     """
-    global CONFIG
     # 从配置文件加载配置
-    CONFIG = load_config()
-    if not CONFIG:
+    config = load_config()
+    if not config:
         print("无法加载配置文件，请检查config.json文件是否存在且格式正确")
         return
     
     # 从配置中获取信息
-    access_token = CONFIG.get("token")
-    repo_owner = CONFIG.get("owner")
-    repo_name = CONFIG.get("repo")
+    access_token = config.get("token")
+    repo_owner = config.get("owner")
+    repo_name = config.get("repo")
     
     # 验证配置信息
     if not all([access_token, repo_owner, repo_name]):
@@ -58,7 +59,7 @@ def main():
     
     # 1. 采集Issues数据
     print("\n开始采集Issues数据...")
-    issues = github_api.get_issues(repo, state=CONFIG["issue_state"],labels=CONFIG["filter_labels"])
+    issues = github_api.get_issues(repo, state=config["issue_state"],labels=config["filter_labels"])
     issues_list = extractor.extract_issues(issues, github_api, repo)
     print(f"采集到 {len(issues_list)} 个Issues")
     
@@ -96,7 +97,7 @@ def main():
     print(f"预处理完成 {len(processed_requirements)} 个需求")
     
     # 保存需求数据
-    use_llm = CONFIG["requirement_processing"]["use_llm_processing"]
+    use_llm = config["requirement_processing"]["use_llm_processing"]
     llm_suffix = "_llm" if use_llm else ""
     req_file_name = f"requirements_processed{llm_suffix}.json"
     req_file_path = f"{data_dir}/{req_file_name}"
@@ -106,20 +107,22 @@ def main():
     print(f"需求数据已保存到: {req_file_path}")
     
     # 5. 采集文件数据
-    
-    # 按原仓库结构保存源代码文件
-    print("\n开始保存源代码文件到origin_src目录...")
-    origin_src_dir = f"{data_dir}/origin_src"
-    # 如果文件夹已经存在，不用再下载
-    if os.path.exists(origin_src_dir):
-        print(f"文件夹 {origin_src_dir} 已存在，无需重复下载")
-    else:
-        saved_count = extractor.save_source_files(repo, origin_src_dir)
-        print(f"成功保存 {saved_count} 个源代码文件到 {origin_src_dir}")
-    
-    
+    download_repository_main()
     print("\n数据采集、预处理和保存完成")
 
+    # 6. 分析代码，保存为_analysis.json
+    analyze_code()
+
+
+def analyze_code():
+    """
+    分析每个代码，保存为_analysis.json
+    将所有方法、类代码编码成向量保存为.pt文件
+    """
+    analyze_directory(f"data/{config['repo']}/origin_src")
+    print("\n代码解析完成")
+    process_analysis_files(f"data/{config['repo']}/origin_src")
+    print("\n代码向量计算、保存完成")
 
 if __name__ == "__main__":
     main()
