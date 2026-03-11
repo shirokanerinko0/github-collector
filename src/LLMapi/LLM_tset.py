@@ -12,6 +12,7 @@ CONFIG = load_config()
 # 从配置文件获取API密钥和基础URL
 API_KEY = CONFIG["SiliconFlow"]["API_Key"]
 BASE_URL = CONFIG["SiliconFlow"]["Base_URL"]  # 使用siliconflow的API地址
+MAX_BODY_LEN = 4000
 
 # 创建OpenAI客户端
 client = OpenAI(
@@ -62,6 +63,7 @@ Output in JSON format:
 
 
 def process_requirement_text_llm(title, body):
+    body = body[:MAX_BODY_LEN]
     """
     处理原始Issue文本，去噪提取和需求分类
     
@@ -72,26 +74,71 @@ def process_requirement_text_llm(title, body):
     Returns:
         JSON格式的处理结果
     """
-    prompt = f'''You are a senior software engineering requirements analyst. Your task is to read the raw Issue text scraped from GitHub/Jira and complete the following two tasks:
+    prompt =f'''You are a senior software engineering requirements analyst. Your task is to read the raw Issue text scraped from GitHub and complete the following tasks:
 
-1. [Denoising and Extraction]: Filter out irrelevant noise such as error stacks (Stacktrace), code snippets, environment configurations, acknowledgments, etc., and summarize the core诉求 of this text in clear natural language.
-
+1. [Denoising and Extraction]: Filter out irrelevant noise (stacktraces, config files, greetings) and extract the core intent of the author.
 2. [Requirement Classification]: Determine which software engineering requirement type this Issue belongs to.
 
-You can only choose one of the following four types:
-- "BUG": Defect report (system error, behavior does not meet expectations).
-- "FR": Functional requirement (Feature Request, requires adding new features or extending logic).
-- "NFR": Non-functional requirement (such as performance optimization, code refactoring, security enhancement, dependency upgrade).
-- "INVALID": Invalid requirement (such as pure user questions, modifying Markdown documents, meaningless nonsense).
+### Category Definitions (Strictly choose ONE from the 7 options):
+- "BUG": Code Defect. The production code is broken, throws unexpected errors, or logic fails to meet existing design/specifications.
+- "FR": Functional Requirement (Feature / Enhancement). Requesting new business logic, new APIs, new features, or modifying existing features to support new use cases.
+- "NFR": Non-Functional Requirement. Modifying production code to improve system attributes (e.g., performance optimization, memory leak fixing, security enhancement, code refactoring).
+- "DOCS": Documentation. Issues related strictly to creating, updating, fixing typos, or translating READMEs, JavaDocs, tutorials, or official websites. No production code changes.
+- "CHORE": Repository Maintenance. Internal engineering tasks that do not affect the end-user product (e.g., CI/CD pipeline updates, GitHub Actions, dependency version bumps, build scripts, linting configurations).
+- "QUESTION": User Support. The user is asking for help, reporting confusion, asking "how-to", or inquiring about roadmaps/release dates. The intent is seeking an answer or guidance, not proposing a codebase change.
+- "INVALID": Pure noise. Spam, completely empty descriptions, meaningless test strings (e.g., "test", "123"), or completely out-of-scope/unrelated content.
 
-[Strict Requirements]: You must only output valid JSON format, do not include any additional explanations or Markdown code block markers (such as ```json).
-JSON must include the following three fields:
+Summarize the following GitHub issue into a concise requirement.
+
+Rules:
+- Use a direct requirement statement.
+- Do NOT mention the user, issue, request, or discussion.
+- Do NOT start with phrases like:
+    "The user requests"
+    "This issue requests"
+    "The author wants"
+- Describe only the feature or capability to be added or changed.
+- Maximum 25 words.
+
+Bad summaries:
+- The user requests adding support for X.
+- The issue asks for adding feature Y.
+
+Good summaries:
+- Add support for X.
+- Implement feature Y.
+- Enable X functionality.
+
+### Few-Shot Examples for Clarification:
+Example 1:
+User: "how to get Set<String> in a collection mapping in xml?"
+Analysis: The user is asking for guidance on how to write code using existing features. They are not asking the developers to modify the framework's source code.
+Category: QUESTION
+
+Example 2:
+User: "when will mybatis add r2dbc feature?"
+Analysis: The user is inquiring about the roadmap/release date of a specific feature. This is a question about project management and future plans, not an actionable feature request proposal.
+Category: QUESTION
+
+Example 3:
+User: "Update GitHub Actions to use Node 20"
+Analysis: The user is requesting an update to the CI/CD pipeline. This is an internal repository maintenance task that does not change the core product logic.
+Category: CHORE
+
+Example 4:
+User: "Typo in the caching documentation page"
+Analysis: The user is pointing out a spelling mistake in the official documentation. No production code changes are required.
+Category: DOCS
+
+### Output Format (JSON Only):
+You must output valid JSON without any markdown wrappers (like ```json). 
+CRITICAL: You MUST generate the JSON keys in the EXACT order below (analyze first, classify last). All text must be in English.
+
 {{
-"category": "BUG | FR | NFR | INVALID",
-"cleaned_summary": "The clean requirement summary you extracted and rewritten (can be in English or Chinese, keep the original meaning)",
-"reason": "Briefly explain why it is classified into this category"
+"cleaned_summary": "Summarize the core requirement clearly in English. Keep the original meaning but remove noise.",
+"reason": "Step 1: What is the user's core intent? Step 2: Does this require developers to change the production code, documentation, or CI/CD? Step 3: Is it just a pure question or meaningless noise? Explain briefly.",
+"category": "BUG | FR | NFR | DOCS | CHORE | QUESTION | INVALID"
 }}
-All in English.
 
 Issue Title:
 """{title}"""

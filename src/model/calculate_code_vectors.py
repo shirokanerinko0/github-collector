@@ -12,119 +12,149 @@ config = load_config()
 ##排除的目录路径
 exclude_dirs = config['exclude_dirs']
 
+
+def get_pt_file_name():
+    encode_model_name = config.get("encode_model_name", "unixcoder")
+    analyze_by_method = config.get("analyze_by_method", False)
+    analyze_full_code = config.get("analyze_full_code", False)
+    pt_file_name = f"{encode_model_name}_code_vectors{'_full' if analyze_full_code else ''}{'_method' if analyze_by_method else ''}.pt"
+    return pt_file_name
+
 def process_analysis_files(directory):
     """
     处理指定目录下的所有_analysis.json文件，计算方法向量并保存
     """
-    # 获取配置的模型名称
+    # 获取配置
     encode_model_name = config.get("encode_model_name", "unixcoder")
+    analyze_by_method = config.get("analyze_by_method", False)
+    analyze_full_code = config.get("analyze_full_code", False)
+    batch_size = config.get("batch_size", 32) # 建议在config中添加batch_size，默认32或64
     
-    # 根据模型名称生成pt文件名
-    pt_file_name = f"{encode_model_name}_code_vectors.pt"
+    pt_file_name = get_pt_file_name()
     pt_file_path = os.path.join(os.path.dirname(directory), pt_file_name)
     
-    # 如果存在.pt文件则直接加载，不重复计算
     if os.path.exists(pt_file_path):
         print(f"目录 {directory} 已存在代码向量 ({pt_file_name})，跳过处理")
         return
     
-    # 创建编码器
     print(f"正在加载编码器: {encode_model_name}")
     encoder = EncoderFactory.create_encoder(encode_model_name)
     embedding_dim = encoder.get_embedding_dim()
     print(f"编码器加载完成，向量维度: {embedding_dim}")
-    # 初始化数据结构
-    data = {
-        "embeddings": [],
-        "file_paths": [],
-        "method_names": [],
-        "class_names": [],
-        "original_code": [],
-        "model_name": encode_model_name,
-        "dimension": embedding_dim
-    }
     
-    print(f"正在处理目录: {directory}")
+    # 将不变的路径计算移出循环
+    src_dir = os.path.join('data', config.get('repo', ''), 'origin_src')
+    
+    print(f"正在读取与解析目录: {directory}")
     print("=" * 60)
-    # 过滤文件数量
+    
     exclude_count = 0
-    # 遍历目录及其子目录
+    
+    # 临时列表，用于收集所有待编码的数据
+    texts_to_encode =[]
+    file_paths = []
+    method_names = []
+    class_names =[]
+    original_codes =[]
+
+    # 第一阶段：极速遍历与解析文件（不涉及深度学习计算）
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith('_analysis.json'):
                 file_path = os.path.join(root, file)
-                # 排除指定目录中的文件
+                
+                # 排除指定目录
                 if any(exclude_dir in file_path for exclude_dir in exclude_dirs):
                     exclude_count += 1
                     continue
                 
-                print(f"处理文件: {file_path}")
+                relative_path = os.path.relpath(file_path, src_dir).replace('_analysis.json', '.java')
                 
                 try:
-                    # 读取分析文件
                     with open(file_path, 'r', encoding='utf-8') as f:
                         analysis_data = json.load(f)
-                    # 处理每个类
-                    if analysis_data.get("classes"):
-                        for cls in analysis_data["classes"]:
-                            class_name = cls.get("name", "")
-                            class_code = cls.get("original_code", "")
+                    source_code = analysis_data.get("source_code", "")    
+                    if analyze_full_code:
+                        texts_to_encode.append(source_code)
+                        file_paths.append(relative_path)
+                        method_names.append("")  # 类的method_names为空
+                        class_names.append("")  # 类的class_names为空
+                        original_codes.append(source_code)
+                        
+                    if not analysis_data.get("classes"):
+                        continue
+                        
+                    for cls in analysis_data["classes"]:
+                        class_name = cls.get("name", "")
+                        class_code = cls.get("original_code", "")
 
-                            # 计算相对于origin_src的路径并转换为Java文件路径
-                            src_dir = os.path.join('data', config['repo'], 'origin_src')
-                            relative_path = os.path.relpath(file_path, src_dir).replace('_analysis.json', '.java')
-                            
-                            # 添加类信息到数据结构
-                            if class_code:
-                                # 计算类向量
-                                class_embedding = encoder.encode([class_code])[0]
-                                class_embedding = torch.tensor(class_embedding)
+                        if class_code:
+                            texts_to_encode.append(class_code)
+                            file_paths.append(relative_path)
+                            method_names.append("")  # 类的method_names为空
+                            class_names.append(class_name)
+                            original_codes.append(class_code)
+                        
+                        if analyze_by_method:
+                            for method in cls.get("methods",[]):
+                                method_name = method.get("name", "")
+                                method_code = method.get("original_code", "")
                                 
-                                # 添加到数据结构
-                                data["embeddings"].append(class_embedding)
-                                data["file_paths"].append(relative_path)
-                                data["method_names"].append("")  # 类的method_names为空
-                                data["class_names"].append(class_name)
-                                data["original_code"].append(class_code)
-                            
-                            # 处理每个方法
-                            if config.get("analyze_by_method", False):
-                                for method in cls.get("methods", []):
-                                    method_name = method.get("name", "")
-                                    original_code = method.get("original_code", "")
+                                if method_code:
+                                    texts_to_encode.append(method_code)
+                                    file_paths.append(relative_path)
+                                    method_names.append(method_name)
+                                    class_names.append(class_name)
+                                    original_codes.append(method_code)
                                     
-                                    if original_code:
-                                        # 计算方法向量
-                                        embedding = encoder.encode([original_code])[0]
-                                        embedding = torch.tensor(embedding)
-                                        
-                                        # 添加到数据结构
-                                        data["embeddings"].append(embedding)
-                                        data["file_paths"].append(relative_path)
-                                        data["method_names"].append(method_name)
-                                        data["class_names"].append(class_name)
-                                        data["original_code"].append(original_code)
-                    
                 except Exception as e:
-                    print(f"处理文件 {file_path} 时出错: {e}")
+                    print(f"解析文件 {file_path} 时出错: {e}")
+
+    # 第二阶段：批量计算向量 (Batch Encoding)
+    total_samples = len(texts_to_encode)
+    if total_samples == 0:
+        print("未找到有效的方法或类代码。")
+        return
+
+    print(f"\n共解析到 {total_samples} 个代码片段，过滤了 {exclude_count} 个文件。")
+    print(f"开始批量提取向量 (Batch Size: {batch_size})...")
     
-    #批量转换成embedding
-
-
-    # 转换为张量
-    if data["embeddings"]:
-        data["embeddings"] = torch.stack(data["embeddings"])
-        print(f"\n共处理 {len(data['embeddings'])} 个类和方法，过滤 {exclude_count} 个文件")
+    all_embeddings =[]
+    
+    # 使用 tqdm 分批次进行编码，防止 OOM (显存/内存溢出)
+    for i in tqdm(range(0, total_samples, batch_size), desc="编码进度"):
+        batch_texts = texts_to_encode[i: i + batch_size]
         
-        # 保存为pt文件，与directory同一级
-        output_path = os.path.join(os.path.dirname(directory), pt_file_name)
-        torch.save(data, output_path)
-        print(f"向量文件保存到: {output_path}")
-    else:
-        print("未找到方法代码")
+        # 将一个批次的文本传给 encoder (模型内部会并行处理)
+        # 注意: 你的 encoder.encode 必须支持传入列表并返回批量向量
+        batch_emb = encoder.encode(batch_texts) 
+        
+        # 转为 tensor
+        if not isinstance(batch_emb, torch.Tensor):
+            batch_emb = torch.tensor(batch_emb)
+            
+        all_embeddings.append(batch_emb.cpu())
+        torch.cuda.empty_cache()
+    # 将所有的批次拼接起来
+    final_embeddings = torch.cat(all_embeddings, dim=0)
+    
+    # 构建最终的数据结构
+    data = {
+        "embeddings": final_embeddings,
+        "file_paths": file_paths,
+        "method_names": method_names,
+        "class_names": class_names,
+        "original_code": original_codes,
+        "model_name": encode_model_name,
+        "dimension": embedding_dim
+    }
+    
+    # 保存结果
+    output_path = os.path.join(os.path.dirname(directory), pt_file_name)
+    torch.save(data, output_path)
     
     print("=" * 60)
-    print("处理完成！")
+    print(f"处理完成！向量文件成功保存到: {output_path}")
 
 if __name__ == "__main__":
     # 测试目录

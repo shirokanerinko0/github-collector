@@ -72,9 +72,12 @@ def get_jina_code_model():
         model_name = config.get("jina_code", {}).get("model_name", "jinaai/jina-code-embeddings-0.5b")
         
         print("正在加载 Jina Code Embeddings 模型...")
-        jina_code_model = SentenceTransformer(model_name, trust_remote_code=True)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        jina_code_model = SentenceTransformer(model_name, trust_remote_code=True, device=device)
+        jina_code_model.max_seq_length = 1024
+        if device == "cuda":
+            jina_code_model.half()
         print("Jina Code Embeddings 模型加载完成")
-    
     return jina_code_model
 
 

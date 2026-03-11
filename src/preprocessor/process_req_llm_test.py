@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+
 """
 测试 preprocess_requirements 功能测试脚本
 """
@@ -8,8 +9,9 @@
 import sys
 import os
 import json
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from src.utils.utils import save_data
+
 
 from src.utils.utils import load_config
 from src.preprocessor.data_preprocessor import DataPreprocessor
@@ -29,7 +31,7 @@ def main():
     preprocessor = DataPreprocessor()
     
     # 从文件读取测试需求数据
-    test_data_file = "data\\tesnb\\requirements_raw.json"
+    test_data_file = f"data\\{CONFIG['repo']}\\requirements_raw.json"
     print(f"\n从文件读取测试数据: {test_data_file}")
     
     try:
@@ -44,7 +46,8 @@ def main():
     # 预处理需求
     print("\n开始预处理需求...")
     processed_requirements = preprocessor.preprocess_requirements(test_requirements)
-    
+    req_file_path = f"data\\{CONFIG['repo']}\\requirements_processed{'_llm' if use_llm_processing else ''}.json"
+    save_data(processed_requirements, req_file_path)
     print(f"\n预处理完成，剩余需求数量: {len(processed_requirements)}")
     
     # 打印处理结果

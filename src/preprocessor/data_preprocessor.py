@@ -43,14 +43,6 @@ try:
 except Exception as e:
     print(f"分词初始化失败，但将继续执行: {str(e)}")
 
-# 导入代码标识符处理器
-try:
-    from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
-    code_processor = CodeIdentifierProcessor()
-except Exception as e:
-    print(f"无法导入代码标识符处理器: {str(e)}")
-    code_processor = None
-
 
 class DataPreprocessor:
     """
@@ -63,8 +55,6 @@ class DataPreprocessor:
         """
         ## 初始化停用词列表
         self.stop_words = set(stopwords.words('english'))
-        ## 初始化代码处理器
-        self.code_processor = code_processor
     
     def preprocess_text(self, text):
         """
@@ -174,9 +164,9 @@ class DataPreprocessor:
         for req in requirements:
             processed_req = self.preprocess_requirement(req)
             
-            # 如果配置了过滤无效需求且分类为INVALID，则跳过
+            # 如果配置了过滤无效需求且分类不在req_type中，则跳过
             if use_llm_processing and filter_invalid_issues:
-                if processed_req.get("llm_category") == "INVALID":
+                if processed_req.get("llm_category")  not in CONFIG["req_type"]:
                     req_id = processed_req.get('req_id', '')
                     print(f"跳过无效需求 {req_id}")
                     continue

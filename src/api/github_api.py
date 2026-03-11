@@ -229,7 +229,7 @@ class GitHubAPI:
             traceback.print_exc()
             return []
     
-    def get_pull_requests(self, repo, state="all"):
+    def get_pull_requests(self, repo, state="closed"):
         """
         获取仓库的Pull Requests，包含关联的commit列表
         :param repo: 仓库对象
@@ -243,10 +243,13 @@ class GitHubAPI:
             pulls_list = []
             count = 0
             for pr in pulls:
+                labels = [label.name for label in pr.labels]
                 if count >= limits["max_pull_requests"]:
                     break
-                pulls_list.append(pr)
-                count += 1
+                if any(label in CONFIG["filter_labels"] for label in labels):
+                    # 保留这个 PR
+                    pulls_list.append(pr)
+                    count += 1
             
             # 记录API响应
             if self.debug:

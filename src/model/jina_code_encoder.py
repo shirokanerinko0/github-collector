@@ -5,8 +5,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from src.model.base_encoder import BaseEncoder
 import src.model.model_manager as model_manager
-
-
+import torch
+print(torch.__version__)
+print(torch.cuda.is_available())
+print(torch.cuda.device_count())
+print(torch.cuda.get_device_name(0))
 class JinaCodeEncoder(BaseEncoder):
     """
     Jina Code Embeddings 编码器类 (jinaai/jina-code-embeddings-0.5b)
@@ -29,7 +32,7 @@ class JinaCodeEncoder(BaseEncoder):
         Returns:
             numpy.ndarray: 编码后的向量数组，形状为 (len(texts), embedding_dim)
         """
-        return self.model.encode(texts)
+        return self.model.encode(texts, convert_to_tensor=True,show_progress_bar=False)
     
     def get_embedding_dim(self):
         """
