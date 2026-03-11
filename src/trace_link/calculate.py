@@ -2,7 +2,6 @@ import os,sys,json
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
 config = load_config()
-print(config)
 def calculate_recall(links, change_files):
     """
     计算召回情况

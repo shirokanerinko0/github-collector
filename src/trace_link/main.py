@@ -126,9 +126,10 @@ def trace_links():
     # 整体统计
     overall_stats = {
         'total_requirements': len(requirements),
+        'requirements_with_change_files': 0,
+        'requirements_with_at_least_one_hit': 0,
         'total_change_files': 0,
         'total_hit_files': 0,
-        'requirements_with_change_files': 0,
         'top_k': top_k,
     }
     
@@ -159,6 +160,8 @@ def trace_links():
             overall_stats['requirements_with_change_files'] += 1
             overall_stats['total_change_files'] += recall_info['total_change_files']
             overall_stats['total_hit_files'] += recall_info['hit_count']
+            if recall_info['hit_count'] > 0:
+                overall_stats['requirements_with_at_least_one_hit'] += 1
         
         # 添加到结果
         result_item = {
@@ -193,7 +196,10 @@ def trace_links():
     # 保存结果
     output_file = os.path.join('data', config['repo'],'trace_link'+
                             ('_llm' if config['trace_link']['use_llm'] else '')+
-                            ('_scan_all_files' if config['trace_link']['scan_all_files_when_no_change_files'] else '')+'.json')
+                            ('_scan_all_files' if config['trace_link']['scan_all_files_when_no_change_files'] else '')+
+                            (f'_{encode_model_name}' if encode_model_name else '')+
+                            (f'_top{top_k}' if top_k else '')+
+                            ('.json'))
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_output, f, indent=2, ensure_ascii=False, separators=(',', ': '))
@@ -205,6 +211,7 @@ def trace_links():
     print("整体统计:")
     print(f"  总需求数: {overall_stats['total_requirements']}")
     print(f"  有变更文件的需求数: {overall_stats['requirements_with_change_files']}")
+    print(f"  至少命中一个文件的需求数: {overall_stats['requirements_with_at_least_one_hit']}")
     print(f"  总变更文件数: {overall_stats['total_change_files']}")
     print(f"  命中文件数: {overall_stats['total_hit_files']}")
     print(f"  整体召回率: {overall_stats.get('overall_recall', 0):.4f}")
