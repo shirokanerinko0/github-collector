@@ -308,31 +308,40 @@ def analyze_directory(directory):
     """
     分析指定目录下的所有Java文件
     分析结果保存在源代码同一目录下，文件名添加_analysis.json后缀
+    如果已存在任何_analysis.json文件，则跳过整个目录
     """
     analyzer = JavaCodeAnalyzer()
     
     print(f"正在分析目录: {directory}")
     print("=" * 60)
     
-    # 遍历目录及其子目录
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith('_analysis.json'):
+                print(f"发现已存在的分析文件: {os.path.join(root, file)}")
+                print("目录已处理过，跳过分析")
+                print("=" * 60)
+                return
+    
+    analyzed_count = 0
+    
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith('.java'):
                 file_path = os.path.join(root, file)
                 print(f"分析文件: {file_path}")
                 try:
-                    # 分析文件
                     result = analyzer.analyze_file(file_path)
-                    # 生成输出文件路径
                     output_file = file_path.replace('.java', '_analysis.json')
-                    # 保存分析结果
                     analyzer.save_json(result, output_file)
+                    analyzed_count += 1
                     print()
                 except Exception as e:
                     print(f"分析文件 {file_path} 时出错: {e}")
                     exit(1)
+    
     print("=" * 60)
-    print("分析完成！")
+    print(f"分析完成！共分析 {analyzed_count} 个文件")
 
 # --- 测试代码 ---
 if __name__ == "__main__":

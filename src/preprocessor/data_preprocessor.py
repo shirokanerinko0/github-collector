@@ -125,11 +125,11 @@ class DataPreprocessor:
         # 1. 生成text_clean
         title = requirement.get('title', '')
         description = requirement.get('description', '')
-        full_text = f"{title}"
+        full_text = f"{title}/n{description}"
         processed_req['text_clean'] = self.preprocess_text(full_text)
         
         # 2. 生成tokens
-        processed_req['tokens'] = self.get_tokens(full_text)
+        # processed_req['tokens'] = self.get_tokens(full_text)
         
         # 3. 使用LLM处理需求文本
         if use_llm_processing:

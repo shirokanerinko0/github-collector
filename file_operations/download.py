@@ -158,7 +158,7 @@ def download_without_git(owner=None, repo=None, target_dir=None, force=False, cl
 
 
 def download_repository_main():
-    # 尝试使用git下载
+    # 使用zip方式下载仓库
     result = download_without_git(force=False, clean=True)
     
     if result:

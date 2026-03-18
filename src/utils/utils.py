@@ -4,10 +4,10 @@
 """
 工具文件，包含配置文件加载和数据保存等功能
 """
-
+import sys
 import json
 import os
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 def load_config(config_file="config.json"):
     """
@@ -25,6 +25,7 @@ def load_config(config_file="config.json"):
         traceback.print_exc()
         return None
 
+config = load_config()
 
 def save_data(data, file_path):
     """
@@ -60,7 +61,32 @@ def save_data(data, file_path):
         traceback.print_exc()
 
 
-## 读取json文件，返回List或dict
+def save_config(config, config_file="config.json"):
+    """
+    保存配置到文件
+    :param config: 配置字典
+    :param config_file: 配置文件路径
+    """
+    try:
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        print(f"配置保存成功: {config_file}")
+        return True
+    except Exception as e:
+        print(f"保存配置失败: {str(e)}")
+        return False
+
+
+def get_trace_link_result_file_name():
+    encode_model_name= config['encode_model_name']
+    top_k= config['top_k']
+    str = 'trace_link'+ \
+        ('_llm' if config['trace_link']['use_llm'] else '')+ \
+        (f'_{encode_model_name}' if encode_model_name else '')+\
+        (f'_top{top_k}' if top_k else '')+\
+        ('.json')
+    return str
+
 def read_json_file(file_path):
     """
     读取json文件，返回List或dict
