@@ -55,15 +55,15 @@ def main():
     print("预处理结果详情:")
     print("=" * 60)
     
-    for i, req in enumerate(processed_requirements):
-        print(f"\n需求 {i + 1}:")
-        print(f"  req_id: {req.get('req_id')}")
-        print(f"  title: {req.get('title')}")
+    # for i, req in enumerate(processed_requirements):
+    #     print(f"\n需求 {i + 1}:")
+    #     print(f"  req_id: {req.get('req_id')}")
+    #     print(f"  title: {req.get('title')}")
         
-        if use_llm_processing:
-            print(f"  llm_category: {req.get('llm_category')}")
-            print(f"  cleaned_summary: {req.get('cleaned_summary')}")
-            print(f"  llm_reason: {req.get('llm_reason')}")
+    #     if use_llm_processing:
+    #         print(f"  llm_category: {req.get('llm_category')}")
+    #         print(f"  cleaned_summary: {req.get('cleaned_summary')}")
+    #         print(f"  llm_reason: {req.get('llm_reason')}")
     
     print("\n" + "=" * 60)
     print("测试完成!")

@@ -142,15 +142,19 @@ class DataPreprocessor:
                 
                 # 添加LLM处理结果字段
                 processed_req["llm_category"] = llm_data.get("category")
-                processed_req["cleaned_summary"] = llm_data.get("cleaned_summary")
+                processed_req["cleaned_summary"] = "retrieval_query: " + llm_data.get("cleaned_summary")
                 processed_req["llm_reason"] = llm_data.get("reason")
                 processed_req["type"] = llm_data.get("category", "default")
             except Exception as llm_error:
                 print(f"LLM处理需求 {req_id} 时出错: {str(llm_error)}")
                 import traceback
                 traceback.print_exc()
+                processed_req["llm_reason"] = "error"
+                processed_req["llm_category"] = "error"
+                processed_req["cleaned_summary"] = "retrieval_query: " + full_text
+                processed_req["type"] = "default"
         else:
-            processed_req["cleaned_summary"] = full_text
+            processed_req["cleaned_summary"] = "retrieval_query: " + full_text
             processed_req["type"] = "default"
 
         return processed_req
