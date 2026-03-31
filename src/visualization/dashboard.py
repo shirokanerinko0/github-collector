@@ -25,7 +25,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+config = load_config()
 pt_file_name = get_pt_file_name()
+encode_model_name = config['encode_model_name']
 st.markdown("""
 <style>
     .main-header {
@@ -176,12 +178,11 @@ def run_command_realtime(command, output_placeholder, cwd=None, prefix=""):
     return prefix + ''.join(output_lines), return_code
 
 def main():
-    st.markdown('<div class="main-header">TRae - 需求追踪链接工具</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">需求追踪链接工具</div>', unsafe_allow_html=True)
     
     with st.sidebar:
         st.header("配置面板")
         
-        config = load_config()
         
         st.subheader("仓库设置")
         owner = st.text_input("Owner", value=config.get('owner', 'google'))
@@ -541,7 +542,7 @@ def main():
                             stats = data.get('statistics', {})
                             comparison_data.append({
                                 'file': f,
-                                'model': f.split('_')[2] if len(f.split('_')) > 2 else 'unknown',
+                                'model': encode_model_name,
                                 'recall': stats.get('overall_recall', 0),
                                 'total_req': stats.get('total_requirements', 0),
                                 'with_change': stats.get('requirements_with_change_files', 0),

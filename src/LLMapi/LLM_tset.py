@@ -51,7 +51,7 @@ Output in JSON format:
             ],
             response_format={"type": "json_object"},  # 指定返回JSON格式
             temperature=0.2,
-            max_tokens=1024,
+            max_tokens=2048,
         )
 
         # 获取模型返回的内容
@@ -74,77 +74,41 @@ def process_requirement_text_llm(title, body):
     Returns:
         JSON格式的处理结果
     """
-    prompt =f'''You are a senior software engineering requirements analyst. Your task is to read the raw Issue text scraped from GitHub and complete the following tasks:
+    prompt =f'''
+## Task
+Process GitHub issue for code traceability (vector similarity search).
 
-1. [Denoising and Extraction]: Filter out irrelevant noise (stacktraces, config files, greetings) and extract the core intent of the author.
-2. [Requirement Classification]: Determine which software engineering requirement type this Issue belongs to.
+## Classification
+BUG | FR | NFR | DOCS | CHORE | QUESTION | INVALID
+- BUG: Crashes, errors, unexpected behavior
+- FR: New features, new methods, new APIs
+- NFR: Performance, thread-safety, security, refactoring
 
-### Category Definitions (Strictly choose ONE from the 7 options):
-- "BUG": Code Defect. The production code is broken, throws unexpected errors, or logic fails to meet existing design/specifications.
-- "FR": Functional Requirement (Feature / Enhancement). Requesting new business logic, new APIs, new features, or modifying existing features to support new use cases.
-- "NFR": Non-Functional Requirement. Modifying production code to improve system attributes (e.g., performance optimization, memory leak fixing, security enhancement, code refactoring).
-- "DOCS": Documentation. Issues related strictly to creating, updating, fixing typos, or translating READMEs, JavaDocs, tutorials, or official websites. No production code changes.
-- "CHORE": Repository Maintenance. Internal engineering tasks that do not affect the end-user product (e.g., CI/CD pipeline updates, GitHub Actions, dependency version bumps, build scripts, linting configurations).
-- "QUESTION": User Support. The user is asking for help, reporting confusion, asking "how-to", or inquiring about roadmaps/release dates. The intent is seeking an answer or guidance, not proposing a codebase change.
-- "INVALID": Pure noise. Spam, completely empty descriptions, meaningless test strings (e.g., "test", "123"), or completely out-of-scope/unrelated content.
+## Critical Rules (Vector Retrieval)
+1. **KEEP ALL Technical Entities**:
+   - Class names: ImmutableSet, Maps, Throwables
+   - Method names: builderWithLoadFactor, fromProperties, propagateIf
+   - Package names: com.google.common.collect
+   - Parameters: float, int, customLoadFactor
+   - Exceptions: NullPointerException, ConcurrentModificationException
+   - Values: 0.7, 0.35, HashSet, load factor
 
-Summarize the following GitHub issue into a concise requirement.
+2. **DO NOT Over-Abstract**:
+   - WRONG: "Add theme switching support"
+   - RIGHT: "Add dark theme option - ImmutableSet.builderWithLoadFactor(0.2f)"
+   
+3. **Format** (code-comment style):
+   "[Verb] [ClassName].[methodName] - [Preserve original API names and parameters]"
 
-Rules:
-- Use a direct requirement statement.
-- Do NOT mention the user, issue, request, or discussion.
-- Do NOT start with phrases like:
-    "The user requests"
-    "This issue requests"
-    "The author wants"
-- Describe only the feature or capability to be added or changed.
-- Maximum 25 words.
-
-Bad summaries:
-- The user requests adding support for X.
-- The issue asks for adding feature Y.
-
-Good summaries:
-- Add support for X.
-- Implement feature Y.
-- Enable X functionality.
-
-### Few-Shot Examples for Clarification:
-Example 1:
-User: "how to get Set<String> in a collection mapping in xml?"
-Analysis: The user is asking for guidance on how to write code using existing features. They are not asking the developers to modify the framework's source code.
-Category: QUESTION
-
-Example 2:
-User: "when will mybatis add r2dbc feature?"
-Analysis: The user is inquiring about the roadmap/release date of a specific feature. This is a question about project management and future plans, not an actionable feature request proposal.
-Category: QUESTION
-
-Example 3:
-User: "Update GitHub Actions to use Node 20"
-Analysis: The user is requesting an update to the CI/CD pipeline. This is an internal repository maintenance task that does not change the core product logic.
-Category: CHORE
-
-Example 4:
-User: "Typo in the caching documentation page"
-Analysis: The user is pointing out a spelling mistake in the official documentation. No production code changes are required.
-Category: DOCS
-
-### Output Format (JSON Only):
-You must output valid JSON without any markdown wrappers (like ```json). 
-CRITICAL: You MUST generate the JSON keys in the EXACT order below (analyze first, classify last). All text must be in English.
-
+## Output (JSON only)
 {{
-"cleaned_summary": "Summarize the core requirement clearly in English. Keep the original meaning but remove noise.",
-"reason": "Step 1: What is the user's core intent? Step 2: Does this require developers to change the production code, documentation, or CI/CD? Step 3: Is it just a pure question or meaningless noise? Explain briefly.",
-"category": "BUG | FR | NFR | DOCS | CHORE | QUESTION | INVALID"
+"reason": "Brief analysis.",
+"category": "BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID",
+"cleaned_summary": "Keep all technical entities, use code-comment style."
 }}
 
-Issue Title:
-"""{title}"""
-
-Issue Body:
-"""{body}"""
+Issue Title: """{title}"""
+Issue Body: """{body}"""
 '''
 
     try:
@@ -157,7 +121,7 @@ Issue Body:
             ],
             response_format={"type": "json_object"},
             temperature=0.2,
-            max_tokens=1024,
+            max_tokens=2048,
         )
 
         # 获取模型返回的内容
@@ -190,58 +154,28 @@ if __name__ == "__main__":
     print(result1)
     
     print("\n" + "=" * 60)
-    print("测试2: process_requirement_text_llm - BUG类型")
+    print("测试2: process_requirement_text_llm")
     print("=" * 60)
-    bug_title = "Bug: Login fails with valid credentials"
-    bug_body = """
-When trying to login with correct username and password, the system returns an error message.
-Stack trace:
-java.lang.NullPointerException
-    at com.example.UserService.login(UserService.java:42)
-    at com.example.LoginController.post(LoginController.java:28)
-    
-Environment:
-- Java 11
-- Spring Boot 2.5.0
-"""
-    result2 = process_requirement_text_llm(bug_title, bug_body)
+    title2 = "Add generics with Maps. fromProperties()."
+    body2 = "Add generics with Maps. fromProperties().\r\n\r\nIt can use like this:\r\n```java\r\nMap<Integer, Integer> maps = fromProperties(prop, (k)->Integer.valueOf(k), (v)->Integer.valueOf(v));\r\n```\r\nIt's very useful when we use it to convert properties to a generics map.\r\n\r\nAnd in other way, we can implement with BiFunction<T, U, R> to expand this method."
+    result2 = process_requirement_text_llm(title2, body2)
     print("LLM Output:")
     print(result2)
     
     print("\n" + "=" * 60)
-    print("测试3: process_requirement_text_llm - FR类型")
+    print("测试3: process_requirement_text_llm")
     print("=" * 60)
-    fr_title = "Feature Request: Add dark mode support"
-    fr_body = """
-It would be great to have a dark mode option for the application.
-Many users prefer dark themes for better readability at night.
-Thanks!
-"""
-    result3 = process_requirement_text_llm(fr_title, fr_body)
+    title3 = "Add Throwables.propagateIf"
+    body3 = "In a normal application is common to throw an exception after eval an expression like\r\n\r\n```\r\nif (balance < amount) {\r\n   throw new InsufficientFundsException();\r\n}\r\n```\r\n\r\n```\r\nif (!optional.isPresent()) {\r\n  throw new NotFoundException();\r\n}\r\n```\r\n\r\nThis PR aims to get rid of those boilerplate code with propagateIf\r\n\r\n```\r\nThrowables.propagateIf(balance < amount, () -> new InsufficientFundsException());\r\nThrowables.propagateIf(!optional.isPresent(), () -> new NotFoundException());\r\n```\r\n\r\n"
+    result3 = process_requirement_text_llm(title3, body3)
     print("LLM Output:")
     print(result3)
     
     print("\n" + "=" * 60)
-    print("测试4: process_requirement_text_llm - NFR类型")
+    print("测试4: process_requirement_text_llm")
     print("=" * 60)
-    nfr_title = "Performance: Optimize database queries"
-    nfr_body = """
-The current database queries are taking too long to execute.
-We need to optimize the queries and add proper indexing to improve performance.
-Also, consider upgrading to the latest version of MySQL.
-"""
-    result4 = process_requirement_text_llm(nfr_title, nfr_body)
+    title4 = "Making the BloomFilter thread-safe & lock-free"
+    body4 = "Previously, the BloomFilter wasn't thread-safe and required external locking to ensure safety. Now, it's thread-safe and lock-free through the use of atomics and compare-and-swap.\r\n\r\nThis PR introduces **no** API changes beyond an extra `@ThreadSafe` annotation on the BloomFilter class. It should also be entirely backwards (and forwards) compatible with the serialization format because that too isn't being changed. \r\n\r\nPlease extend extra scrutiny to the `LockFreeBitArray.putAll()` method because it's not present in our internal fork of the BloomFilter class and has thus not gone through our integ tests or has seen prod (I wrote it for this PR).\r\n\r\nFixes #2748."
+    result4 = process_requirement_text_llm(title4, body4)
     print("LLM Output:")
     print(result4)
-    
-    print("\n" + "=" * 60)
-    print("测试5: process_requirement_text_llm - INVALID类型")
-    print("=" * 60)
-    invalid_title = "How to use this library?"
-    invalid_body = """
-I'm new to this library. Can someone please explain how to use it?
-Thanks in advance!
-"""
-    result5 = process_requirement_text_llm(invalid_title, invalid_body)
-    print("LLM Output:")
-    print(result5)

@@ -15,22 +15,20 @@ from src.preprocessor.data_preprocessor import DataPreprocessor
 from src.trace_link.main import trace_links
 
 # 全局配置变量
-config = load_config()
+CONFIG = load_config()
 
 def main():
     """
     主函数，整合各层功能模块
     """
-    # 从配置文件加载配置
-    config = load_config()
-    if not config:
+    if not CONFIG:
         print("无法加载配置文件，请检查config.json文件是否存在且格式正确")
         return
     
     # 从配置中获取信息
-    access_token = config.get("token")
-    repo_owner = config.get("owner")
-    repo_name = config.get("repo")
+    access_token = CONFIG.get("token")
+    repo_owner = CONFIG.get("owner")
+    repo_name = CONFIG.get("repo")
     
     # 验证配置信息
     if not all([access_token, repo_owner, repo_name]):
@@ -59,7 +57,7 @@ def main():
     
     # 1. 采集Issues数据
     print("\n开始采集Issues数据...")
-    issues = github_api.get_issues(repo, state=config["issue_state"],labels=config["filter_labels"])
+    issues = github_api.get_issues(repo, state=CONFIG["issue_state"],labels=CONFIG["filter_labels"])
     issues_list = extractor.extract_issues(issues, github_api, repo)
     print(f"采集到 {len(issues_list)} 个Issues")
     
@@ -97,7 +95,7 @@ def main():
     print(f"预处理完成 {len(processed_requirements)} 个需求")
     
     # 保存需求数据
-    use_llm = config["requirement_processing"]["use_llm_processing"]
+    use_llm = CONFIG["requirement_processing"]["use_llm_processing"]
     llm_suffix = "_llm" if use_llm else ""
     req_file_name = f"requirements_processed{llm_suffix}.json"
     req_file_path = f"{data_dir}/{req_file_name}"
@@ -119,9 +117,9 @@ def analyze_code():
     分析每个代码，保存为_analysis.json
     将所有方法、类代码编码成向量保存为.pt文件
     """
-    analyze_directory(f"data/{config['repo']}/origin_src")
+    analyze_directory(f"data/{CONFIG['repo']}/origin_src")
     print("\n代码解析完成")
-    process_analysis_files(f"data/{config['repo']}/origin_src")
+    process_analysis_files(f"data/{CONFIG['repo']}/origin_src")
     print("\n代码向量计算、保存完成")
 
 if __name__ == "__main__":

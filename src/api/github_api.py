@@ -246,10 +246,10 @@ class GitHubAPI:
                 labels = [label.name for label in pr.labels]
                 if count >= limits["max_pull_requests"]:
                     break
-                if any(label in CONFIG["filter_labels"] for label in labels):
-                    # 保留这个 PR
-                    pulls_list.append(pr)
-                    count += 1
+                # if any(label in CONFIG["filter_labels"] for label in labels):
+                # pr不做标签过滤
+                pulls_list.append(pr)
+                count += 1
             
             # 记录API响应
             if self.debug:

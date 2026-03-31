@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 import nltk
 import re
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from src.utils.utils import load_config
@@ -125,7 +126,7 @@ class DataPreprocessor:
         # 1. 生成text_clean
         title = requirement.get('title', '')
         description = requirement.get('description', '')
-        full_text = f"{title}/n{description}"
+        full_text = f"{title}\n{description}"
         processed_req['text_clean'] = self.preprocess_text(full_text)
         
         # 2. 生成tokens
@@ -156,22 +157,31 @@ class DataPreprocessor:
     
     def preprocess_requirements(self, requirements):
         """
-        预处理需求列表
+        预处理需求列表（并行处理）
         :param requirements: 需求列表
         :return: 预处理后的需求列表
         """
+        max_workers = CONFIG["requirement_processing"].get("max_workers", 8)
+        
         processed_requirements = []
-        for req in requirements:
-            processed_req = self.preprocess_requirement(req)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_req = {
+                executor.submit(self.preprocess_requirement, req): req 
+                for req in requirements
+            }
             
-            # 如果配置了过滤无效需求且分类不在req_type中，则跳过
-            if use_llm_processing and filter_invalid_issues:
-                if processed_req.get("llm_category")  not in CONFIG["req_type"]:
-                    req_id = processed_req.get('req_id', '')
-                    print(f"跳过无效需求 {req_id}")
-                    continue
-            
-            processed_requirements.append(processed_req)
+            for future in as_completed(future_to_req):
+                processed_req = future.result()
+                
+                if use_llm_processing and filter_invalid_issues:
+                    if processed_req.get("llm_category") not in CONFIG["req_type"]:
+                        req_id = processed_req.get('req_id', '')
+                        print(f"跳过无效需求 {req_id}")
+                        continue
+                
+                processed_requirements.append(processed_req)
+        
         return processed_requirements
     
     def preprocess_issues(self, issues):
