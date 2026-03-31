@@ -6,6 +6,7 @@
 """
 import os
 import sys
+import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 import nltk
 import re
@@ -134,25 +135,39 @@ class DataPreprocessor:
         
         # 3. 使用LLM处理需求文本
         if use_llm_processing:
-            try:
-                req_id = requirement.get('req_id', '')
-                print(f"使用LLM处理需求 {req_id}...")
-                llm_result = process_requirement_text_llm(title, description)
-                llm_data = json.loads(llm_result)
-                
-                # 添加LLM处理结果字段
-                processed_req["llm_category"] = llm_data.get("category")
-                processed_req["cleaned_summary"] = "retrieval_query: " + llm_data.get("cleaned_summary")
-                processed_req["llm_reason"] = llm_data.get("reason")
-                processed_req["type"] = llm_data.get("category", "default")
-            except Exception as llm_error:
-                print(f"LLM处理需求 {req_id} 时出错: {str(llm_error)}")
-                import traceback
-                traceback.print_exc()
-                processed_req["llm_reason"] = "error"
-                processed_req["llm_category"] = "error"
-                processed_req["cleaned_summary"] = "retrieval_query: " + full_text
-                processed_req["type"] = "default"
+            max_retries = 5
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    req_id = requirement.get('req_id', '')
+                    print(f"使用LLM处理需求 {req_id}... (尝试 {retry_count + 1}/{max_retries})")
+                    llm_result = process_requirement_text_llm(title, description)
+                    llm_data = json.loads(llm_result)
+                    
+                    # 添加LLM处理结果字段
+                    processed_req["llm_category"] = llm_data.get("category")
+                    cleaned_summary = llm_data.get("cleaned_summary")
+                    if cleaned_summary:
+                        processed_req["cleaned_summary"] = "retrieval_query: " + cleaned_summary
+                    else:
+                        processed_req["cleaned_summary"] = "retrieval_query: " + full_text
+                    processed_req["llm_reason"] = llm_data.get("reason")
+                    processed_req["type"] = llm_data.get("category", "default")
+                    break  # 处理成功，跳出循环
+                except Exception as llm_error:
+                    retry_count += 1
+                    print(f"LLM处理需求 {req_id} 时出错: {str(llm_error)}")
+                    if retry_count < max_retries:
+                        print(f"2秒后重试...")
+                        time.sleep(2)
+                    else:
+                        print(f"已达到最大重试次数，使用默认文本")
+                        import traceback
+                        traceback.print_exc()
+                        processed_req["llm_reason"] = "error"
+                        processed_req["llm_category"] = "error"
+                        processed_req["cleaned_summary"] = "retrieval_query: " + full_text
+                        processed_req["type"] = "default"
         else:
             processed_req["cleaned_summary"] = "retrieval_query: " + full_text
             processed_req["type"] = "default"
