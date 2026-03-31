@@ -24,12 +24,12 @@ You are a Senior Software Engineering Requirements Analyst specializing in GitHu
 - **Precision over Brevity**: Aim for clarity. If the issue is complex, use up to 40 words, but keep it a single sentence.
 
 ### Output Format (JSON Only)
-CRITICAL: You must output the JSON keys in this EXACT order: "reason" first, then "category", then "cleaned_summary". This ensures the summary is based on the analysis.
+CRITICAL: You must output the JSON keys in this EXACT order: "reason" first, then "category", then "search_query". This ensures the summary is based on the analysis.
 
 {
 "reason": "Step-by-step logic: 1. Identify intent. 2. Check if it touches production code/docs/CI. 3. Look for specific technical keywords or error logs.",
 "category": "BUG | FR | NFR | DOCS | CHORE | QUESTION | INVALID",
-"cleaned_summary": "A high-density technical requirement statement (e.g., 'Implement a thread-safe cache for DataMapper to prevent ConcurrentModificationException during high-load lookups')."
+"search_query": "A high-density technical requirement statement (e.g., 'Implement a thread-safe cache for DataMapper to prevent ConcurrentModificationException during high-load lookups')."
 }
 
 Issue Title:

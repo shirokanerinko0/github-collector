@@ -482,7 +482,7 @@ def main():
                                 else:
                                     st.markdown(f"**标题:** {req['req_title']}")
                                 st.markdown(f"**类型:** {req.get('req_type', 'N/A')}")
-                                st.markdown(f"**摘要:** {req.get('req_cleaned_summary', 'N/A')}")
+                                st.markdown(f"**摘要:** {req.get('req_search_query', 'N/A')}")
                                 
                                 with st.expander("查看完整描述"):
                                     st.text(req.get('req_description', '无描述'))

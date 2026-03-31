@@ -62,7 +62,7 @@ def main():
         
     #     if use_llm_processing:
     #         print(f"  llm_category: {req.get('llm_category')}")
-    #         print(f"  cleaned_summary: {req.get('cleaned_summary')}")
+    #         print(f"  search_query: {req.get('search_query')}")
     #         print(f"  llm_reason: {req.get('llm_reason')}")
     
     print("\n" + "=" * 60)

@@ -78,7 +78,7 @@ def process_files_with_encoder(req, change_files):
     links = []
 
     # 构建需求文本
-    requirement_text = req.get('cleaned_summary', '')
+    requirement_text = req.get('search_query', '')
 
     req_embedding = encoder.encode([requirement_text])[0]
     req_embedding = torch.tensor(req_embedding)
@@ -168,7 +168,7 @@ def trace_links():
             'req_id': req_id,
             'req_title': req_title,
             'req_description': req.get('description', ''),
-            'req_cleaned_summary': req.get('cleaned_summary', ''),
+            'req_search_query': req.get('search_query', ''),
             'req_url': req.get('url', ''),
             # 'req_tokens': req.get('tokens', []),
             'req_type': req.get('type', 'default'),

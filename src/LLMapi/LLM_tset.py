@@ -74,41 +74,29 @@ def process_requirement_text_llm(title, body):
     Returns:
         JSON格式的处理结果
     """
-    prompt =f'''
-## Task
-Process GitHub issue for code traceability (vector similarity search).
+    prompt = f'''
+## Role
+You are a Code Retrieval Optimizer. Your goal is to expand a GitHub Issue into a high-recall search query that matches the `original_code` in a Java codebase.
 
-## Classification
-BUG | FR | NFR | DOCS | CHORE | QUESTION | INVALID
-- BUG: Crashes, errors, unexpected behavior
-- FR: New features, new methods, new APIs
-- NFR: Performance, thread-safety, security, refactoring
+## Objective
+DO NOT just summarize. Instead, **Synthesize** a query that maximizes the probability of overlapping with actual code tokens (method names, logic patterns, variable types).
 
-## Critical Rules (Vector Retrieval)
-1. **KEEP ALL Technical Entities**:
-   - Class names: ImmutableSet, Maps, Throwables
-   - Method names: builderWithLoadFactor, fromProperties, propagateIf
-   - Package names: com.google.common.collect
-   - Parameters: float, int, customLoadFactor
-   - Exceptions: NullPointerException, ConcurrentModificationException
-   - Values: 0.7, 0.35, HashSet, load factor
+## Rules for High Recall (Critical)
+1. **Preserve Key Identifiers**: Extract and keep all ClassNames, MethodNames, VariableNames, and Exception types (e.g., `BigInteger`, `log10`, `RoundingMode`, `ArithmeticException`).
+2. **Implementation Mimicry**: Predict the Java code patterns that will solve this issue. Include likely code snippets or logic keywords (e.g., `switch (mode)`, `x.bitLength()`, `throw new IllegalArgumentException`).
+3. **Identifier Expansion**: If the issue mentions a concept, include its likely Java implementation terms. (e.g., "power of two" -> `isPowerOfTwo`, `setBit`, `shiftLeft`).
+4. **Hybrid Format**: Combine the original title with a dense list of technical tokens. Avoid "filler" words like "this issue is about".
+5. **Contextual Anchoring**: Include the specific error message or stack trace fragments if present.
 
-2. **DO NOT Over-Abstract**:
-   - WRONG: "Add theme switching support"
-   - RIGHT: "Add dark theme option - ImmutableSet.builderWithLoadFactor(0.2f)"
-   
-3. **Format** (code-comment style):
-   "[Verb] [ClassName].[methodName] - [Preserve original API names and parameters]"
-
-## Output (JSON only)
+## Output Format (JSON Only)
 {{
-"reason": "Brief analysis.",
-"category": "BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID",
-"cleaned_summary": "Keep all technical entities, use code-comment style."
+  "reason": "Brief technical analysis.",
+  "search_query": "[Original Title] + [Core Technical Tokens] + [Predicted Code Snippets/Signatures]"
 }}
 
-Issue Title: """{title}"""
-Issue Body: """{body}"""
+## Issue Data
+Title: """{title}"""
+Body: """{body}"""
 '''
 
     try:
@@ -129,7 +117,7 @@ Issue Body: """{body}"""
         return answer_text
     except Exception as e:
         print(f"API调用失败: {e}")
-        return f"{{\"category\": \"INVALID\", \"cleaned_summary\": \"\", \"reason\": \"API调用失败\"}}"
+        return f"{{\"category\": \"INVALID\", \"search_query\": \"\", \"reason\": \"API调用失败\"}}"
 
 
 if __name__ == "__main__":
