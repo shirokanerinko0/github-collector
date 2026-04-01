@@ -5,6 +5,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.utils.utils import load_config
+from src.LLMapi.prompt import PROMPTS, get_prompt, get_best_prompt, list_prompts_by_recall
 
 
 CONFIG = load_config()
@@ -13,6 +14,9 @@ CONFIG = load_config()
 API_KEY = CONFIG["SiliconFlow"]["API_Key"]
 BASE_URL = CONFIG["SiliconFlow"]["Base_URL"]  # 使用siliconflow的API地址
 MAX_BODY_LEN = 4000
+
+# 获取当前使用的提示词配置
+CURRENT_PROMPT_NAME = CONFIG.get("prompt_name", "prompt2")  # 默认使用 prompt2 (最佳效果)
 
 # 创建OpenAI客户端
 client = OpenAI(
@@ -74,31 +78,22 @@ def process_requirement_text_llm(title, body):
     Returns:
         JSON格式的处理结果
     """
-    prompt = f'''
-## Role
-You are a Code Retrieval Optimizer. Your goal is to expand a GitHub Issue into a high-recall search query that matches the `original_code` in a Java codebase.
-
-## Objective
-DO NOT just summarize. Instead, **Synthesize** a query that maximizes the probability of overlapping with actual code tokens (method names, logic patterns, variable types).
-
-## Rules for High Recall (Critical)
-1. **Preserve Key Identifiers**: Extract and keep all ClassNames, MethodNames, VariableNames, and Exception types (e.g., `BigInteger`, `log10`, `RoundingMode`, `ArithmeticException`).
-2. **Implementation Mimicry**: Predict the Java code patterns that will solve this issue. Include likely code snippets or logic keywords (e.g., `switch (mode)`, `x.bitLength()`, `throw new IllegalArgumentException`).
-3. **Identifier Expansion**: If the issue mentions a concept, include its likely Java implementation terms. (e.g., "power of two" -> `isPowerOfTwo`, `setBit`, `shiftLeft`).
-4. **Hybrid Format**: Combine the original title with a dense list of technical tokens. Avoid "filler" words like "this issue is about".
-5. **Contextual Anchoring**: Include the specific error message or stack trace fragments if present.
-
-## Output Format (JSON Only)
-{{
-  "reason": "Brief technical analysis.",
-  "search_query": "[Original Title] + [Core Technical Tokens] + [Predicted Code Snippets/Signatures]"
-}}
-
-## Issue Data
-Title: """{title}"""
-Body: """{body}"""
-'''
-
+    
+    # 获取配置的提示词模板
+    prompt_template = get_prompt(CURRENT_PROMPT_NAME)
+    
+    # 如果没有提示词（without_prompt），直接使用 title + body
+    if prompt_template is None:
+        # 不使用提示词的情况，直接返回原始内容
+        return json.dumps({
+            "reason": "No prompt used, returning original title + body",
+            "category": "default",
+            "search_query": f"{title}\n{body}"
+        })
+    else:
+        # 格式化提示词
+        prompt = prompt_template.format(title=title, body=body)
+    
     try:
         # 使用OpenAI客户端调用API
         response = client.chat.completions.create(
@@ -117,7 +112,7 @@ Body: """{body}"""
         return answer_text
     except Exception as e:
         print(f"API调用失败: {e}")
-        return f"{{\"category\": \"INVALID\", \"search_query\": \"\", \"reason\": \"API调用失败\"}}"
+        return json.dumps({"category": "INVALID", "search_query": f"{title}\n{body}", "reason": "API调用失败"})
 
 
 if __name__ == "__main__":

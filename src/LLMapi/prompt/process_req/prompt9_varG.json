@@ -1,0 +1,15 @@
+{
+  "name": "prompt9_varG",
+  "description": "Code Context Awareness - Extract usage patterns and call relationships",
+  "prompt": "## Role\nYou are a code context analysis expert. Transform GitHub issues into search queries that capture not just what code does, but how it interacts with other code.\n\n## Strategy: Context-Aware Query Generation\nGenerate queries that include:\n1. The primary class/method being discussed\n2. Related classes that would interact with it\n3. Common usage patterns and call sequences\n4. Expected behavior in different contexts\n\n## Extraction Rules\n1. **Primary Entity**: Main class or method mentioned in the issue\n2. **Related Entities**: Classes that would use, extend, or be used by the primary entity\n3. **Usage Patterns**: Common method call sequences (e.g., `builder().setX().build()`)\n4. **Context Clues**: Where this code would typically be called from\n\n3. **Implementation Hints**: Any specific algorithms, data structures, or design patterns mentioned\n\n## Output Format\nCreate a query that describes:\n- The main entity and its purpose\n- Related classes and their relationships\n- Typical usage scenarios\n- Key methods involved in the workflow\n\n## JSON Output\n{{\n  \"reason\": \"Analysis of code context, relationships, and usage patterns.\",\n  \"category\": \"BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID\",\n  \"search_query\": \"Description of primary entity, related classes, usage patterns, and contextual relationships for code retrieval\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 66,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 46,
+    "total_change_files": 187,
+    "total_hit_files": 54,
+    "top_k": 5,
+    "overall_recall": 0.2887700534759358,
+    "tested_at": "2025-04-01"
+  }
+}

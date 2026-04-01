@@ -134,8 +134,8 @@ class DataPreprocessor:
         # processed_req['tokens'] = self.get_tokens(full_text)
         
         # 3. 使用LLM处理需求文本
-        if use_llm_processing:
-            max_retries = 5
+        if use_llm_processing :
+            max_retries = 3
             retry_count = 0
             while retry_count < max_retries:
                 try:
@@ -181,6 +181,9 @@ class DataPreprocessor:
         :return: 预处理后的需求列表
         """
         max_workers = CONFIG["requirement_processing"].get("max_workers", 8)
+        
+        if CONFIG.get("filter_req_no_change_files", True):
+            requirements=[req for req in requirements if req.get('change_files', [])]
         
         processed_requirements = []
         

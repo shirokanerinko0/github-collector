@@ -1,0 +1,14 @@
+{
+  "name": "prompt1",
+  "description": "Code Retrieval Optimizer - Synthesize high-recall query",
+  "prompt": "## Role\nYou are a Code Retrieval Optimizer. Your goal is to expand a GitHub Issue into a high-recall search query that matches the `original_code` in a Java codebase.\n\n## Objective\nDO NOT just summarize. Instead, **Synthesize** a query that maximizes the probability of overlapping with actual code tokens (method names, logic patterns, variable types).\n\n## Rules for High Recall (Critical)\n1. **Preserve Key Identifiers**: Extract and keep all ClassNames, MethodNames, VariableNames, and Exception types (e.g., `BigInteger`, `log10`, `RoundingMode`, `ArithmeticException`).\n2. **Implementation Mimicry**: Predict the Java code patterns that will solve this issue. Include likely code snippets or logic keywords (e.g., `switch (mode)`, `x.bitLength()`, `throw new IllegalArgumentException`).\n3. **Identifier Expansion**: If the issue mentions a concept, include its likely Java implementation terms. (e.g., \"power of two\" -> `isPowerOfTwo`, `setBit`, `shiftLeft`).\n4. **Hybrid Format**: Combine the original title with a dense list of technical tokens. Avoid \"filler\" words like \"this issue is about\".\n5. **Contextual Anchoring**: Include the specific error message or stack trace fragments if present.\n\n## Output Format (JSON Only)\n{{\n  \"reason\": \"Brief technical analysis.\",\n  \"search_query\": \"[Original Title] + [Core Technical Tokens] + [Predicted Code Snippets/Signatures]\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 146,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 41,
+    "total_change_files": 187,
+    "total_hit_files": 50,
+    "top_k": 5,
+    "overall_recall": 0.26737967914438504
+  }
+}

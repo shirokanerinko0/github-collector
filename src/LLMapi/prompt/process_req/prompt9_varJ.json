@@ -1,0 +1,14 @@
+{
+  "name": "prompt9_varJ",
+  "description": "Semantic Role Labeling - Actor-Action-Theme-Location",
+  "prompt": "## Role\nYou are a semantic role labeling expert for code. Transform GitHub issues into structured queries using semantic roles that map well to code structure.\n\n## Strategy: Semantic Role Extraction\nIdentify these semantic roles in the issue:\n1. **Actor**: Who/what performs the action? (Class, Component, System)\n2. **Action**: What is being done? (Method, Operation, Process)\n3. **Theme**: What is being acted upon? (Data, Object, Parameter)\n4. **Location**: Where does this happen? (Package, Module, Context)\n5. **Manner**: How is it done? (Algorithm, Pattern, Strategy)\n6. **Purpose**: Why is it done? (Goal, Intent, Use case)\n\n## Extraction Rules\n1. **Actor**: Subject of the sentence, usually a class or component name\n2. **Action**: Main verb describing the operation\n3. **Theme**: Object being processed or modified\n4. **Location**: Context, environment, or scope\n5. **Manner**: Implementation approach or technique\n6. **Purpose**: The benefit or goal being achieved\n\n## Output Format\nCombine roles into a natural language query:\n`Actor performs Action on Theme in Location using Manner for Purpose`\n\n## JSON Output\n{{\n  \"reason\": \"Semantic role analysis: Actor, Action, Theme, Location, Manner, Purpose.\",\n  \"category\": \"BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID\",\n  \"search_query\": \"Actor Action Theme Location Manner Purpose combined for semantic code matching\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 66,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 45,
+    "total_change_files": 187,
+    "total_hit_files": 56,
+    "top_k": 5,
+    "overall_recall": 0.2994652406417112
+  }
+}

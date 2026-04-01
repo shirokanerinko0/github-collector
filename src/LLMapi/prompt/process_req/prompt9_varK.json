@@ -1,0 +1,14 @@
+{
+  "name": "prompt9_varK",
+  "description": "Code Evolution Awareness - Before/After state analysis",
+  "prompt": "## Role\nYou are a code evolution analyst. Transform GitHub issues into search queries that capture the transformation from current state to desired state.\n\n## Strategy: Evolution-Aware Query Generation\nUnderstand the change as a transition:\n1. **Current State**: What exists now (for bugs: problematic code; for features: missing functionality)\n2. **Desired State**: What should exist after the change\n3. **Transformation**: What operations achieve this change\n4. **Impact**: What other code is affected\n\n## Extraction Rules\n1. **Before Terms**: Current implementation, existing behavior, problematic code\n2. **After Terms**: Desired behavior, new functionality, expected output\n3. **Change Operations**: Add, Modify, Remove, Refactor, Optimize\n4. **Impact Scope**: Related classes, dependent modules, affected APIs\n\n## Output Format\nDescribe the evolution: `Transform [Current] to [Desired] by [Operations] affecting [Impact]`\n\n## JSON Output\n{{\n  \"reason\": \"Code evolution: Current state to desired state transformation analysis.\",\n  \"category\": \"BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID\",\n  \"search_query\": \"Code evolution from current state to desired state with transformation operations and impact scope\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 66,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 42,
+    "total_change_files": 187,
+    "total_hit_files": 52,
+    "top_k": 5,
+    "overall_recall": 0.27807486631016043
+  }
+}

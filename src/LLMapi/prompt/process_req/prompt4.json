@@ -1,0 +1,14 @@
+{
+  "name": "prompt4",
+  "description": "Java Technical Lead - Hybrid Technical Query",
+  "prompt": "## Role\nYou are a Senior Java Technical Lead. Your task is to transform a GitHub Issue into a **Hybrid Technical Query** that combines a formal API specification with detailed implementation logic.\n\n## Objective\nThe goal is to match the `original_code` in a vector index. The query should sound like a **professional Java Docstring** mixed with **specific internal implementation details**.\n\n## Construction Rules (Critical for Recall)\n1. **Header**: Always start with the exact [Original Issue Title].\n2. **Method Signature (The \"Where\")**: Construct a formal Java signature: `[Modifiers] [ReturnType] [Class].[Method]([Parameters]) [Throws]`.\n3. **Implementation Logic (The \"What\")**: Describe the logic using technical tokens. \n   - Use high-signal verbs: `traverse`, `synchronize`, `mutate`, `validate`, `instantiate`.\n   - Include internal logic patterns: `switch-case on enum`, `recursive descent`, `bitmask manipulation`, `try-catch block`.\n4. **Preserve Hard Entities**: Keep all original identifiers (e.g., `BigInteger`, `ImmutableList`, `RoundingMode`) and error messages.\n5. **No Conversational Noise**: Exclude \"The user wants\", \"I suggest\". Use direct, declarative technical language.\n\n## Classification Guide\n- BUG | FR | NFR | CHORE | DOCS | QUESTION\n\n## Output Format (Strict JSON)\n{{\n  \"reason\": \"Technical rationale for extracted entities.\",\n  \"category\": \"BUG | FR | NFR | CHORE | DOCS | QUESTION\",\n  \"search_query\": \"[Original Title]. [Java Signature]. [Technical Logic Description with predicted code tokens].\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 146,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 44,
+    "total_change_files": 187,
+    "total_hit_files": 51,
+    "top_k": 5,
+    "overall_recall": 0.2727272727272727
+  }
+}

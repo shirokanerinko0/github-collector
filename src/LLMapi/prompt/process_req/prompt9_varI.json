@@ -1,0 +1,14 @@
+{
+  "name": "prompt9_varI",
+  "description": "Intent-Driven Retrieval - Focus on developer intent and goals",
+  "prompt": "## Role\nYou are a developer intent analyzer. Transform GitHub issues into search queries that capture the underlying developer intent and goals, not just technical details.\n\n## Strategy: Intent Extraction\nUnderstand what the developer wants to achieve and express it in terms that match code structure:\n1. **Goal**: What is the developer trying to accomplish?\n2. **Action**: What operation needs to be performed?\n3. **Target**: What data or object is being operated on?\n4. **Constraint**: What limitations or requirements exist?\n\n## Extraction Rules\n1. **Goal Phrases**: 'enable X', 'allow Y to Z', 'support W'\n2. **Action Verbs**: Add, Remove, Update, Validate, Transform, Convert\n3. **Target Objects**: The main class, data structure, or component\n4. **Constraint Terms**: Thread-safe, immutable, nullable, async\n\n## Output Format\nExpress the query as: `[Goal] by [Action] on [Target] with [Constraints]`\n\n## JSON Output\n{{\n  \"reason\": \"Developer intent: goal, action, target, and constraints analysis.\",\n  \"category\": \"BUG|FR|NFR|DOCS|CHORE|QUESTION|INVALID\",\n  \"search_query\": \"Developer intent expressed as goal, action on target with constraints\"\n}}\n\n## Issue Data\nTitle: \"\"\"{title}\"\"\"\nBody: \"\"\"{body}\"\"\"",
+  "statistics": {
+    "total_requirements": 66,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 44,
+    "total_change_files": 187,
+    "total_hit_files": 51,
+    "top_k": 5,
+    "overall_recall": 0.2727272727272727
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "without_prompt",
+  "description": "No prompt - search_query = title + body",
+  "prompt": null,
+  "statistics": {
+    "total_requirements": 146,
+    "requirements_with_change_files": 66,
+    "requirements_with_at_least_one_hit": 46,
+    "total_change_files": 187,
+    "total_hit_files": 56,
+    "top_k": 5,
+    "overall_recall": 0.2994652406417112
+  }
+}
