@@ -3,7 +3,7 @@ import torch
 import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.model.calculate_code_vectors import get_pt_file_name
-from src.utils.utils import load_config
+from src.utils.utils import load_config, get_trace_link_result_file_name, get_requirements_processed_file_name
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
 from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
 from src.model.wmd_calculator import WMDCalculator
@@ -19,7 +19,7 @@ encode_model_name = config.get("encode_model_name", "unixcoder")
 top_k = config.get("top_k", 5)
 def load_requirements():
     """加载处理后的需求数据"""
-    req_file = os.path.join('data', config['repo'], 'requirements_processed'+('_llm' if use_llm_processing else '')+'.json')
+    req_file = os.path.join('data', config['repo'], get_requirements_processed_file_name())
     if os.path.exists(req_file):
         with open(req_file, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -194,12 +194,7 @@ def trace_links():
     }
     
     # 保存结果
-    output_file = os.path.join('data', config['repo'],'trace_link'+
-                            ('_llm' if config['trace_link']['use_llm'] else '')+
-                            ('_scan_all_files' if config['trace_link']['scan_all_files_when_no_change_files'] else '')+
-                            (f'_{encode_model_name}' if encode_model_name else '')+
-                            (f'_top{top_k}' if top_k else '')+
-                            ('.json'))
+    output_file = os.path.join('data', config['repo'],get_trace_link_result_file_name())
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_output, f, indent=2, ensure_ascii=False, separators=(',', ': '))

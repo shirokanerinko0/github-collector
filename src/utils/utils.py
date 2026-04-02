@@ -25,7 +25,7 @@ def load_config(config_file="config.json"):
         traceback.print_exc()
         return None
 
-config = load_config()
+CONFIG = load_config()
 
 def save_data(data, file_path):
     """
@@ -78,14 +78,26 @@ def save_config(config, config_file="config.json"):
 
 
 def get_trace_link_result_file_name():
-    encode_model_name= config['encode_model_name']
-    top_k= config['top_k']
-    str = 'trace_link'+ \
-        ('_llm' if config['trace_link']['use_llm'] else '')+ \
-        (f'_{encode_model_name}' if encode_model_name else '')+\
-        (f'_top{top_k}' if top_k else '')+\
-        ('.json')
-    return str
+    encode_model_name= CONFIG['encode_model_name']
+    top_k= CONFIG['top_k']
+    name = (
+        'trace_link'
+        +('_llm' if CONFIG['trace_link']['use_llm'] else '')
+        +(CONFIG['SiliconFlow']['model'].replace('/', '_') if CONFIG['requirement_processing']['use_llm_processing'] else '')
+        +(f'_{encode_model_name}' if encode_model_name else '')
+        +(f'_top{top_k}' if top_k else '')
+        + '.json'
+        )
+    return name
+
+def get_requirements_processed_file_name():
+    name = (
+    'requirements_processed'
+    + ('_llm_' if CONFIG['requirement_processing']['use_llm_processing'] else '')
+    + (CONFIG['SiliconFlow']['model'].replace('/', '_') if CONFIG['requirement_processing']['use_llm_processing'] else '')
+    + '.json'
+    )
+    return name
 
 def read_json_file(file_path):
     """

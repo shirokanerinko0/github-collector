@@ -10,7 +10,7 @@ import sys
 import os
 import json
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from src.utils.utils import save_data
+from src.utils.utils import save_data, get_requirements_processed_file_name
 
 
 from src.utils.utils import load_config
@@ -46,7 +46,8 @@ def main():
     # 预处理需求
     print("\n开始预处理需求...")
     processed_requirements = preprocessor.preprocess_requirements(test_requirements)
-    req_file_path = f"data\\{CONFIG['repo']}\\requirements_processed{'_llm' if use_llm_processing else ''}.json"
+    req_processed_file_name=get_requirements_processed_file_name()
+    req_file_path = f"data\\{CONFIG['repo']}\\{req_processed_file_name}"
     save_data(processed_requirements, req_file_path)
     print(f"\n预处理完成，剩余需求数量: {len(processed_requirements)}")
     

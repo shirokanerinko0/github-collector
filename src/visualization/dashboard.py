@@ -17,7 +17,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from src.utils.utils import load_config, save_config
+from src.utils.utils import load_config, save_config, get_requirements_processed_file_name
 from src.model.calculate_code_vectors import get_pt_file_name
 st.set_page_config(
     page_title="需求追踪链接工具",
@@ -343,7 +343,7 @@ def main():
                 data_files = {
                     'requirements_raw.json': '原始需求数据',
                     'requirements_processed.json': '预处理需求',
-                    'requirements_processed_llm.json': 'LLM处理需求',
+                    get_requirements_processed_file_name(): 'LLM处理需求',
                     pt_file_name: '代码向量文件'
                 }
                 for fname, desc in data_files.items():

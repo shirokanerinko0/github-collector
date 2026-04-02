@@ -8,7 +8,7 @@ from file_operations.download import download_repository_main
 主文件，整合各层功能模块
 """
 import os
-from src.utils.utils import load_config, save_data
+from src.utils.utils import load_config, save_data, get_requirements_processed_file_name
 from src.api.github_api import GitHubAPI
 from src.extractor.data_extractor import DataExtractor
 from src.preprocessor.data_preprocessor import DataPreprocessor
@@ -95,9 +95,7 @@ def main():
     print(f"预处理完成 {len(processed_requirements)} 个需求")
     
     # 保存需求数据
-    use_llm = CONFIG["requirement_processing"]["use_llm_processing"]
-    llm_suffix = "_llm" if use_llm else ""
-    req_file_name = f"requirements_processed{llm_suffix}.json"
+    req_file_name = get_requirements_processed_file_name()
     req_file_path = f"{data_dir}/{req_file_name}"
     
     save_data(processed_requirements, req_file_path)
