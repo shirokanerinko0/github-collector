@@ -172,7 +172,8 @@ def trace_links():
             'req_url': req.get('url', ''),
             # 'req_tokens': req.get('tokens', []),
             'req_type': req.get('type', 'default'),
-            'links': links,
+            # 打印前5个链接
+            'links': links[:5],
             'change_files': change_files
         }
         
