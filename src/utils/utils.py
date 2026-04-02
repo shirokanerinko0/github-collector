@@ -80,12 +80,17 @@ def save_config(config, config_file="config.json"):
 def get_trace_link_result_file_name():
     encode_model_name= CONFIG['encode_model_name']
     top_k= CONFIG['top_k']
+    # 处理top_k为数组的情况
+    if isinstance(top_k, list):
+        top_k_str = str(top_k[0])+'_'+str(top_k[-1])
+    else:
+        top_k_str = str(top_k)
     name = (
         'trace_link'
         +('_llm' if CONFIG['trace_link']['use_llm'] else '')
         +(CONFIG['SiliconFlow']['model'].replace('/', '_') if CONFIG['requirement_processing']['use_llm_processing'] else '')
         +(f'_{encode_model_name}' if encode_model_name else '')
-        +(f'_top{top_k}' if top_k else '')
+        +(f'_top{top_k_str}' if top_k else '')
         + '.json'
         )
     return name

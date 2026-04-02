@@ -215,7 +215,22 @@ def main():
             options=['unixcoder', 'jina_code', 'jina_v2'],
             index=['unixcoder', 'jina_code', 'jina_v2'].index(config.get('encode_model_name', 'unixcoder'))
         )
-        top_k = st.slider("Top-K", min_value=1, max_value=20, value=config.get('top_k', 5))
+        
+        # 支持多个top_k值
+        top_k_values = config.get('top_k', [5])
+        if isinstance(top_k_values, int):
+            top_k_values = [top_k_values]
+        
+        # 让用户选择top_k值（多选）
+        selected_top_k = st.multiselect(
+            "Top-K 值",
+            options=[1, 5, 10, 15, 20],
+            default=top_k_values,
+            help="选择多个Top-K值进行评估"
+        )
+        
+        if not selected_top_k:
+            selected_top_k = [5]  # 默认值
         
         st.subheader("高级设置")
         use_llm_processing = st.checkbox("使用LLM处理需求", value=config.get('requirement_processing', {}).get('use_llm_processing', False))
@@ -236,7 +251,7 @@ def main():
             new_config['filter_labels'] = filter_labels
             new_config['issue_state'] = issue_state
             new_config['encode_model_name'] = encode_model
-            new_config['top_k'] = top_k
+            new_config['top_k'] = selected_top_k
             new_config['requirement_processing']['use_llm_processing'] = use_llm_processing
             new_config['trace_link']['use_llm'] = use_llm_trace
             new_config['analyze_by_method'] = analyze_by_method
@@ -385,24 +400,48 @@ def main():
                     if data:
                         stats = data.get('statistics', {})
                         
-                        col_a, col_b, col_c, col_d = st.columns(4)
-                        with col_a:
-                            st.metric("总需求数", stats.get('total_requirements', 0))
-                        with col_b:
-                            st.metric("有变更文件", stats.get('requirements_with_change_files', 0))
-                        with col_c:
-                            st.metric("至少命中一个", stats.get('requirements_with_at_least_one_hit', 0))
-                        with col_d:
-                            recall = stats.get('overall_recall', 0)
-                            st.metric("整体召回率", f"{recall:.2%}")
-                        
-                        col_e, col_f, col_g = st.columns(3)
-                        with col_e:
-                            st.metric("总变更文件", stats.get('total_change_files', 0))
-                        with col_f:
-                            st.metric("命中文件数", stats.get('total_hit_files', 0))
-                        with col_g:
-                            st.metric("Top-K", stats.get('top_k', 5))
+                        # 处理多个top_k的情况
+                        if isinstance(stats, dict) and 'top_k' in stats:
+                            # 单top_k情况
+                            col_a, col_b, col_c, col_d = st.columns(4)
+                            with col_a:
+                                st.metric("总需求数", stats.get('total_requirements', 0))
+                            with col_b:
+                                st.metric("有变更文件", stats.get('requirements_with_change_files', 0))
+                            with col_c:
+                                st.metric("至少命中一个", stats.get('requirements_with_at_least_one_hit', 0))
+                            with col_d:
+                                recall = stats.get('overall_recall', 0)
+                                st.metric("整体召回率", f"{recall:.2%}")
+                            
+                            col_e, col_f, col_g = st.columns(3)
+                            with col_e:
+                                st.metric("总变更文件", stats.get('total_change_files', 0))
+                            with col_f:
+                                st.metric("命中文件数", stats.get('total_hit_files', 0))
+                            with col_g:
+                                st.metric("Top-K", stats.get('top_k', 5))
+                        else:
+                            # 多top_k情况
+                            st.subheader("各Top-K统计")
+                            for top_k, stat_data in stats.items():
+                                with st.expander(f"Top {top_k}"):
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    with col1:
+                                        st.metric("总需求数", stat_data.get('total_requirements', 0))
+                                    with col2:
+                                        st.metric("有变更文件", stat_data.get('requirements_with_change_files', 0))
+                                    with col3:
+                                        st.metric("至少命中一个", stat_data.get('requirements_with_at_least_one_hit', 0))
+                                    with col4:
+                                        recall = stat_data.get('overall_recall', 0)
+                                        st.metric("整体召回率", f"{recall:.2%}")
+                                    
+                                    col5, col6 = st.columns(2)
+                                    with col5:
+                                        st.metric("总变更文件", stat_data.get('total_change_files', 0))
+                                    with col6:
+                                        st.metric("命中文件数", stat_data.get('total_hit_files', 0))
                         
                         st.divider()
                         
@@ -410,38 +449,81 @@ def main():
                         recalls = []
                         for r in results:
                             if 'recall' in r:
-                                recalls.append({
-                                    'req_id': r['req_id'],
-                                    'title': r['req_title'][:30] + '...' if len(r['req_title']) > 30 else r['req_title'],
-                                    'recall': r['recall']['recall'],
-                                    'hit': r['recall']['hit_count'],
-                                    'total': r['recall']['total_change_files']
-                                })
+                                recall_data = r['recall']
+                                if isinstance(recall_data, dict) and 'recall' in recall_data:
+                                    # 单top_k情况
+                                    recalls.append({
+                                        'req_id': r['req_id'],
+                                        'title': r['req_title'][:30] + '...' if len(r['req_title']) > 30 else r['req_title'],
+                                        'recall': recall_data['recall'],
+                                        'hit': recall_data['hit_count'],
+                                        'total': recall_data['total_change_files']
+                                    })
+                                else:
+                                    # 多top_k情况，为每个top_k创建一条记录
+                                    for top_k, recall_info in recall_data.items():
+                                        recalls.append({
+                                            'req_id': r['req_id'],
+                                            'title': r['req_title'][:30] + '...' if len(r['req_title']) > 30 else r['req_title'],
+                                            'recall': recall_info['recall'],
+                                            'hit': recall_info['hit_count'],
+                                            'total': recall_info['total_change_files'],
+                                            'top_k': top_k
+                                        })
                         
                         if recalls:
                             df = pd.DataFrame(recalls)
                             
-                            fig = make_subplots(rows=1, cols=2, 
-                                               subplot_titles=('各需求召回率', '召回率分布'))
-                            
-                            colors = ['green' if r > 0 else 'red' for r in df['recall']]
-                            fig.add_trace(
-                                go.Bar(x=df['req_id'], y=df['recall'], marker_color=colors,
-                                       text=[f"{r:.0%}" for r in df['recall']], textposition='outside'),
-                                row=1, col=1
-                            )
-                            
-                            fig.add_trace(
-                                go.Histogram(x=df['recall'], nbinsx=10, marker_color='#1f77b4'),
-                                row=1, col=2
-                            )
-                            
-                            fig.update_layout(height=400, showlegend=False)
-                            fig.update_xaxes(tickangle=45, row=1, col=1)
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            st.subheader("召回率详情")
-                            st.dataframe(df.style.format({'recall': '{:.2%}'}), use_container_width=True)
+                            # 如果有top_k列，添加到图表中
+                            if 'top_k' in df.columns:
+                                # 按top_k分组显示
+                                for top_k in sorted(df['top_k'].unique()):
+                                    with st.expander(f"Top {top_k} 召回率"):
+                                        df_topk = df[df['top_k'] == top_k]
+                                        
+                                        fig = make_subplots(rows=1, cols=2, 
+                                                           subplot_titles=(f'各需求召回率 (Top {top_k})', f'召回率分布 (Top {top_k})'))
+                                        
+                                        colors = ['green' if r > 0 else 'red' for r in df_topk['recall']]
+                                        fig.add_trace(
+                                            go.Bar(x=df_topk['req_id'], y=df_topk['recall'], marker_color=colors,
+                                                   text=[f"{r:.0%}" for r in df_topk['recall']], textposition='outside'),
+                                            row=1, col=1
+                                        )
+                                        
+                                        fig.add_trace(
+                                            go.Histogram(x=df_topk['recall'], nbinsx=10, marker_color='#1f77b4'),
+                                            row=1, col=2
+                                        )
+                                        
+                                        fig.update_layout(height=400, showlegend=False)
+                                        fig.update_xaxes(tickangle=45, row=1, col=1)
+                                        st.plotly_chart(fig, use_container_width=True)
+                                        
+                                        st.dataframe(df_topk.style.format({'recall': '{:.2%}'}), use_container_width=True)
+                            else:
+                                # 单top_k情况
+                                fig = make_subplots(rows=1, cols=2, 
+                                                   subplot_titles=('各需求召回率', '召回率分布'))
+                                
+                                colors = ['green' if r > 0 else 'red' for r in df['recall']]
+                                fig.add_trace(
+                                    go.Bar(x=df['req_id'], y=df['recall'], marker_color=colors,
+                                           text=[f"{r:.0%}" for r in df['recall']], textposition='outside'),
+                                    row=1, col=1
+                                )
+                                
+                                fig.add_trace(
+                                    go.Histogram(x=df['recall'], nbinsx=10, marker_color='#1f77b4'),
+                                    row=1, col=2
+                                )
+                                
+                                fig.update_layout(height=400, showlegend=False)
+                                fig.update_xaxes(tickangle=45, row=1, col=1)
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                st.subheader("召回率详情")
+                                st.dataframe(df.style.format({'recall': '{:.2%}'}), use_container_width=True)
     
     with tab3:
         st.header("详细数据")
@@ -489,8 +571,17 @@ def main():
                             
                             with col_b:
                                 if 'recall' in req:
-                                    st.metric("召回率", f"{req['recall']['recall']:.2%}")
-                                    st.metric("命中/总数", f"{req['recall']['hit_count']}/{req['recall']['total_change_files']}")
+                                    recall_data = req['recall']
+                                    if isinstance(recall_data, dict) and 'recall' in recall_data:
+                                        # 单top_k情况
+                                        st.metric("召回率", f"{recall_data['recall']:.2%}")
+                                        st.metric("命中/总数", f"{recall_data['hit_count']}/{recall_data['total_change_files']}")
+                                    else:
+                                        # 多top_k情况
+                                        st.subheader("各Top-K召回率")
+                                        for top_k, recall_info in recall_data.items():
+                                            st.metric(f"Top {top_k} 召回率", f"{recall_info['recall']:.2%}")
+                                            st.metric(f"Top {top_k} 命中/总数", f"{recall_info['hit_count']}/{recall_info['total_change_files']}")
                                 else:
                                     st.info("无变更文件数据")
                             
@@ -540,17 +631,33 @@ def main():
                         data = load_trace_link_data(selected_repo, f)
                         if data:
                             stats = data.get('statistics', {})
-                            comparison_data.append({
-                                'file': f,
-                                'model': encode_model_name,
-                                'recall': stats.get('overall_recall', 0),
-                                'total_req': stats.get('total_requirements', 0),
-                                'with_change': stats.get('requirements_with_change_files', 0),
-                                'at_least_one': stats.get('requirements_with_at_least_one_hit', 0),
-                                'total_files': stats.get('total_change_files', 0),
-                                'hit_files': stats.get('total_hit_files', 0),
-                                'top_k': stats.get('top_k', 5)
-                            })
+                            if isinstance(stats, dict) and 'top_k' in stats:
+                                # 单top_k情况
+                                comparison_data.append({
+                                    'file': f,
+                                    'model': encode_model_name,
+                                    'recall': stats.get('overall_recall', 0),
+                                    'total_req': stats.get('total_requirements', 0),
+                                    'with_change': stats.get('requirements_with_change_files', 0),
+                                    'at_least_one': stats.get('requirements_with_at_least_one_hit', 0),
+                                    'total_files': stats.get('total_change_files', 0),
+                                    'hit_files': stats.get('total_hit_files', 0),
+                                    'top_k': stats.get('top_k', 5)
+                                })
+                            else:
+                                # 多top_k情况，为每个top_k创建一条记录
+                                for top_k, stat_data in stats.items():
+                                    comparison_data.append({
+                                        'file': f,
+                                        'model': f"{encode_model_name}_top{top_k}",
+                                        'recall': stat_data.get('overall_recall', 0),
+                                        'total_req': stat_data.get('total_requirements', 0),
+                                        'with_change': stat_data.get('requirements_with_change_files', 0),
+                                        'at_least_one': stat_data.get('requirements_with_at_least_one_hit', 0),
+                                        'total_files': stat_data.get('total_change_files', 0),
+                                        'hit_files': stat_data.get('total_hit_files', 0),
+                                        'top_k': top_k
+                                    })
                     
                     df = pd.DataFrame(comparison_data)
                     

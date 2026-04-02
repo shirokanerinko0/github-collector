@@ -16,7 +16,9 @@ encoder = None
 data = None
 use_llm_processing = config["requirement_processing"]["use_llm_processing"]
 encode_model_name = config.get("encode_model_name", "unixcoder")
-top_k = config.get("top_k", 5)
+top_k_list = config.get("top_k", [5])
+if isinstance(top_k_list, int):
+    top_k_list = [top_k_list]
 def load_requirements():
     """加载处理后的需求数据"""
     req_file = os.path.join('data', config['repo'], get_requirements_processed_file_name())
@@ -75,7 +77,7 @@ def check_requirement_code_relation_llm(req, file_path, code_snippet=""):
 
 def process_files_with_encoder(req, change_files):
 
-    links = []
+    links_all = {}
 
     # 构建需求文本
     requirement_text = req.get('search_query', '')
@@ -97,21 +99,24 @@ def process_files_with_encoder(req, change_files):
         embeddings.T
     ).squeeze(0)
 
-    k = min(top_k, embeddings.shape[0])
-    topk_scores, topk_indices = torch.topk(similarities, k=k)
+    for top_k in top_k_list:
+        k = min(top_k, embeddings.shape[0])
+        topk_scores, topk_indices = torch.topk(similarities, k=k)
 
-    for score, idx in zip(topk_scores, topk_indices):
-        idx = idx.item()
+        links = []
+        for score, idx in zip(topk_scores, topk_indices):
+            idx = idx.item()
 
-        links.append({
-            'file_path': data['file_paths'][idx],
-            'class_name': data['class_names'][idx],
-            'method_name': data['method_names'][idx],
-            'similarity': score.item(),
-            'original_code': data['original_code'][idx]
-        })
+            links.append({
+                'file_path': data['file_paths'][idx],
+                'class_name': data['class_names'][idx],
+                'method_name': data['method_names'][idx],
+                'similarity': score.item(),
+                'original_code': data['original_code'][idx]
+            })
+        links_all[top_k] = links
 
-    return links
+    return links_all
 
 def trace_links():
     """实现需求到代码的追踪链接"""
@@ -123,15 +128,17 @@ def trace_links():
     
     results = []
     
-    # 整体统计
-    overall_stats = {
-        'total_requirements': len(requirements),
-        'requirements_with_change_files': 0,
-        'requirements_with_at_least_one_hit': 0,
-        'total_change_files': 0,
-        'total_hit_files': 0,
-        'top_k': top_k,
-    }
+    # 整体统计（按topk分别统计）
+    overall_stats = {}
+    for top_k in top_k_list:
+        overall_stats[top_k] = {
+            'total_requirements': len(requirements),
+            'requirements_with_change_files': 0,
+            'requirements_with_at_least_one_hit': 0,
+            'total_change_files': 0,
+            'total_hit_files': 0,
+            'top_k': top_k,
+        }
     
     for req in requirements:
         req_id = req.get('req_id')
@@ -141,27 +148,41 @@ def trace_links():
         print(f"\n处理需求: {req_id} - {req_title}")
         
         # 处理文件并计算相似度
-        links = process_files_with_encoder(req, change_files)
-        if(config['trace_link']['use_llm']):
-            for link in links:
-                file_path = link['file_path']
-                # 使用LLM判断关系
-                llm_result = check_requirement_code_relation_llm(req, file_path)
-                link['llm_result'] = llm_result
-            #根据LLM结果排序，related为true且confidence高的排在前面
-            links.sort(key=lambda x: (not x['llm_result']['related'], -x['llm_result']['confidence']))
+        links_all = process_files_with_encoder(req, change_files)
         
-        # 计算召回率（仅当有变更文件时）
-        recall_info = None
+        # 为每个topk处理LLM判断和召回率
+        req_recalls = {}
+        all_links = {}
+        
+        # 先收集所有topk的链接
+        for top_k, links in links_all.items():
+            if config['trace_link']['use_llm']:
+                for link in links:
+                    file_path = link['file_path']
+                    # 使用LLM判断关系
+                    llm_result = check_requirement_code_relation_llm(req, file_path)
+                    link['llm_result'] = llm_result
+                #根据LLM结果排序，related为true且confidence高的排在前面
+                links.sort(key=lambda x: (not x['llm_result']['related'], -x['llm_result']['confidence']))
+            all_links[top_k] = links
+        
+        # 计算每个topk的召回率
         if has_change_files:
-            recall_info = calculate_recall(links, change_files)
-            
-            # 更新整体统计
-            overall_stats['requirements_with_change_files'] += 1
-            overall_stats['total_change_files'] += recall_info['total_change_files']
-            overall_stats['total_hit_files'] += recall_info['hit_count']
-            if recall_info['hit_count'] > 0:
-                overall_stats['requirements_with_at_least_one_hit'] += 1
+            for top_k, links in all_links.items():
+                recall_info = calculate_recall(links, change_files)
+                req_recalls[top_k] = recall_info
+                
+                # 更新整体统计
+                stats = overall_stats[top_k]
+                stats['requirements_with_change_files'] += 1
+                stats['total_change_files'] += recall_info['total_change_files']
+                stats['total_hit_files'] += recall_info['hit_count']
+                if recall_info['hit_count'] > 0:
+                    stats['requirements_with_at_least_one_hit'] += 1
+        
+        # 选择最大topk的链接作为主链接
+        max_topk = max(top_k_list)
+        main_links = all_links[max_topk]
         
         # 添加到结果
         result_item = {
@@ -170,23 +191,20 @@ def trace_links():
             'req_description': req.get('description', ''),
             'req_search_query': req.get('search_query', ''),
             'req_url': req.get('url', ''),
-            # 'req_tokens': req.get('tokens', []),
             'req_type': req.get('type', 'default'),
-            # 打印前5个链接
-            'links': links[:5],
-            'change_files': change_files
+            'links': main_links[:5],  # 最多显示前5个链接
+            'change_files': change_files,
+            'recall': req_recalls if has_change_files else None
         }
-        
-        if has_change_files and recall_info:
-            result_item['recall'] = recall_info
         
         results.append(result_item)
     
     # 计算整体召回率
-    if overall_stats['total_change_files'] > 0:
-        overall_stats['overall_recall'] = overall_stats['total_hit_files'] / overall_stats['total_change_files']
-    else:
-        overall_stats['overall_recall'] = 0.0
+    for top_k, stats in overall_stats.items():
+        if stats['total_change_files'] > 0:
+            stats['overall_recall'] = stats['total_hit_files'] / stats['total_change_files']
+        else:
+            stats['overall_recall'] = 0.0
     
     # 准备最终输出
     final_output = {
@@ -195,7 +213,7 @@ def trace_links():
     }
     
     # 保存结果
-    output_file = os.path.join('data', config['repo'],get_trace_link_result_file_name())
+    output_file = os.path.join('data', config['repo'], get_trace_link_result_file_name())
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_output, f, indent=2, ensure_ascii=False, separators=(',', ': '))
@@ -203,24 +221,30 @@ def trace_links():
     print(f"\n追踪链接结果已保存到: {output_file}")
     
     # 打印结果摘要
-    print("\n" + "=" * 60)
-    print("整体统计:")
-    print(f"  总需求数: {overall_stats['total_requirements']}")
-    print(f"  有变更文件的需求数: {overall_stats['requirements_with_change_files']}")
-    print(f"  至少命中一个文件的需求数: {overall_stats['requirements_with_at_least_one_hit']}")
-    print(f"  总变更文件数: {overall_stats['total_change_files']}")
-    print(f"  命中文件数: {overall_stats['total_hit_files']}")
-    print(f"  整体召回率: {overall_stats.get('overall_recall', 0):.4f}")
-    print("=" * 60)
+    for top_k, stats in overall_stats.items():
+        print(f"\n" + "=" * 60)
+        print(f"Top {top_k} 整体统计:")
+        print("=" * 60)
+        print(f"  总需求数: {stats['total_requirements']}")
+        print(f"  有变更文件的需求数: {stats['requirements_with_change_files']}")
+        print(f"  至少命中一个文件的需求数: {stats['requirements_with_at_least_one_hit']}")
+        print(f"  总变更文件数: {stats['total_change_files']}")
+        print(f"  命中文件数: {stats['total_hit_files']}")
+        print(f"  整体召回率: {stats.get('overall_recall', 0):.4f}")
+        print("=" * 60)
     
-    for result in results:
+    # 打印前几个需求的结果
+    for result in results[:3]:  # 只显示前3个需求
         print(f"\n需求 {result['req_id']}: {result['req_title']}")
-        change_files = result.get('change_files', [])
-        if len(change_files) > 0:
-            recall = result.get('recall', {})
-            print(f"  变更文件: {recall['total_change_files']}, 命中: {recall['hit_count']}, 召回率: {recall['recall']:.4f}")
-        for link in result['links'][:3]:  # 只显示前3个最相似的链接
-            print(f"  - 文件: {link['file_path']}, 类: {link['class_name']}, 相似度: {link['similarity']:.4f}")
+        if result['change_files']:
+            # 打印每个topk的召回率
+            if result.get('recall'):
+                for top_k, recall_info in result['recall'].items():
+                    print(f"  Top {top_k}: 变更文件: {recall_info['total_change_files']}, 命中: {recall_info['hit_count']}, 召回率: {recall_info['recall']:.4f}")
+        # 显示前3个最相似的链接
+        print("  最相似的链接:")
+        for link in result['links'][:3]:
+            print(f"    - 文件: {link['file_path']}, 类: {link['class_name']}, 相似度: {link['similarity']:.4f}")
 
 
 def get_data():
