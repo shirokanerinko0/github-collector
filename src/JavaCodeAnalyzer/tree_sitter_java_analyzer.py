@@ -4,8 +4,8 @@ import json
 import os,sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
-config = load_config()
-
+CONFIG = load_config()
+DEBUG = True
 
 
 class JavaCodeAnalyzer:
@@ -230,6 +230,11 @@ class JavaCodeAnalyzer:
                     # 检查是否是注解（包括 marker_annotation 和 annotation）
                     if mod_child.type in ['marker_annotation', 'annotation']:
                         annotations.append(self._get_text(mod_child))
+        enriched_code = self._get_text(method_node)
+        if CONFIG["enrich_method_with_docstring"]:
+            enriched_code = f"{comment}\n{enriched_code}"
+        if CONFIG["enrich_method_with_class_context"]:
+            enriched_code = f"{enriched_code}"
 
         return {
             "name": method_name,
@@ -240,7 +245,8 @@ class JavaCodeAnalyzer:
             "parameters": parameters,
             "called_functions": called_functions,
             "comments": comment,
-            "original_code": self._get_text(method_node)
+            "original_code": self._get_text(method_node),
+            "enriched_code": enriched_code
         }
 
     def _get_comments(self, node):
@@ -314,14 +320,14 @@ def analyze_directory(directory):
     
     print(f"正在分析目录: {directory}")
     print("=" * 60)
-    
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith('_analysis.json'):
-                print(f"发现已存在的分析文件: {os.path.join(root, file)}")
-                print("目录已处理过，跳过分析")
-                print("=" * 60)
-                return
+    if not DEBUG:
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                if file.endswith('_analysis.json'):
+                    print(f"发现已存在的分析文件: {os.path.join(root, file)}")
+                    print("目录已处理过，跳过分析")
+                    print("=" * 60)
+                    return
     
     analyzed_count = 0
     
@@ -345,8 +351,9 @@ def analyze_directory(directory):
 
 # --- 测试代码 ---
 if __name__ == "__main__":
-
-    test_directory = f"data\\{config['repo']}\\origin_src"
+    test_directory = f"data\\{CONFIG['repo']}\\origin_src"
+    if DEBUG:
+        test_directory = f"src\\JavaCodeAnalyzer\\javacodetest"
     
     if os.path.exists(test_directory):
         analyze_directory(test_directory)

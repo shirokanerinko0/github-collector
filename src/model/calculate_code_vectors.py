@@ -11,7 +11,7 @@ from src.model.encoder_factory import EncoderFactory
 config = load_config()
 ##排除的目录路径
 exclude_dirs = config['exclude_dirs']
-
+DEBUG = True
 
 def get_pt_file_name():
     encode_model_name = config.get("encode_model_name", "unixcoder")

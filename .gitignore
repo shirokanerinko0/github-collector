@@ -18,3 +18,4 @@ file_operations/repo/
 githubapitest.py
 testdata/
 logs/
+src/JavaCodeAnalyzer/javacodetest/
