@@ -4,24 +4,23 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.model.calculate_code_vectors import get_pt_file_name
 from src.utils.utils import load_config, get_trace_link_result_file_name, get_requirements_processed_file_name
-from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import JavaCodeAnalyzer
-from src.JavaCodeAnalyzer.code_identifier_processor import CodeIdentifierProcessor
-from src.model.wmd_calculator import WMDCalculator
+from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import analyze_directory
+from src.model.calculate_code_vectors import process_analysis_files
 from src.LLMapi.LLM_tset import check_requirement_code_relation
 from src.model.encoder_factory import EncoderFactory
 from src.trace_link.calculate import calculate_recall
 
-config = load_config()
+CONFIG = load_config()
 encoder = None
 data = None
-use_llm_processing = config["requirement_processing"]["use_llm_processing"]
-encode_model_name = config.get("encode_model_name", "unixcoder")
-top_k_list = config.get("top_k", [5])
+use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
+encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
+top_k_list = CONFIG.get("top_k", [5])
 if isinstance(top_k_list, int):
     top_k_list = [top_k_list]
 def load_requirements():
     """加载处理后的需求数据"""
-    req_file = os.path.join('data', config['repo'], get_requirements_processed_file_name())
+    req_file = os.path.join('data', CONFIG['repo'], get_requirements_processed_file_name())
     if os.path.exists(req_file):
         with open(req_file, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -30,7 +29,7 @@ def load_requirements():
 def get_source_file_path(file_path):
     """获取源代码文件的完整路径"""
     # 从 change_files 中的相对路径转换为绝对路径
-    src_dir = os.path.join('data', config['repo'], 'origin_src')
+    src_dir = os.path.join('data', CONFIG['repo'], 'origin_src')
     return os.path.join(src_dir, file_path)
 
 
@@ -156,7 +155,7 @@ def trace_links():
         
         # 先收集所有topk的链接
         for top_k, links in links_all.items():
-            if config['trace_link']['use_llm']:
+            if CONFIG['trace_link']['use_llm']:
                 for link in links:
                     file_path = link['file_path']
                     # 使用LLM判断关系
@@ -213,7 +212,7 @@ def trace_links():
     }
     
     # 保存结果
-    output_file = os.path.join('data', config['repo'], get_trace_link_result_file_name())
+    output_file = os.path.join('data', CONFIG['repo'], get_trace_link_result_file_name())
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_output, f, indent=2, ensure_ascii=False, separators=(',', ': '))
@@ -250,7 +249,7 @@ def trace_links():
 def get_data():
     # 根据模型名称生成pt文件名
     pt_file_name = get_pt_file_name()
-    pt_file_path = os.path.join('data', config['repo'], pt_file_name)
+    pt_file_path = os.path.join('data', CONFIG['repo'], pt_file_name)
     if not os.path.exists(pt_file_path):
         print(f"文件不存在: {pt_file_path}")
         exit(1)
@@ -264,6 +263,9 @@ def get_encoder():
     return encoder_
 
 if __name__ == "__main__":
+    test_directory = f"data\\{CONFIG['repo']}\\origin_src"
+    analyze_directory(test_directory)
+    process_analysis_files(test_directory)
     data = get_data()
     encoder = get_encoder()
     trace_links()

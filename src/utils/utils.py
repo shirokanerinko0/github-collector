@@ -91,9 +91,14 @@ def get_trace_link_result_file_name():
         +(CONFIG['SiliconFlow']['model'].replace('/', '_') if CONFIG['requirement_processing']['use_llm_processing'] else '')
         +(f'_{encode_model_name}' if encode_model_name else '')
         +(f'_top{top_k_str}' if top_k else '')
-        + '.json'
         )
-    return name
+    if CONFIG["enrich_method_with_docstring"]:
+        name = name + "_MD"
+    if CONFIG["enrich_class_with_docstring"]:
+        name = name + "_CD"
+    if CONFIG["enrich_method_with_class_context"]:
+        name = name + "_MCC"
+    return name + '.json'
 
 def get_requirements_processed_file_name():
     name = (

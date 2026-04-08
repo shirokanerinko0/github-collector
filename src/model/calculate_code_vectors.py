@@ -8,16 +8,23 @@ from tqdm import tqdm
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from src.utils.utils import load_config
 from src.model.encoder_factory import EncoderFactory
-config = load_config()
+CONFIG = load_config()
 ##排除的目录路径
-exclude_dirs = config['exclude_dirs']
+exclude_dirs = CONFIG['exclude_dirs']
 DEBUG = True
 
 def get_pt_file_name():
-    encode_model_name = config.get("encode_model_name", "unixcoder")
-    analyze_by_method = config.get("analyze_by_method", False)
-    analyze_full_code = config.get("analyze_full_code", False)
-    pt_file_name = f"{encode_model_name}_code_vectors{'_full' if analyze_full_code else ''}{'_method' if analyze_by_method else ''}.pt"
+    encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
+    analyze_by_method = CONFIG.get("analyze_by_method", False)
+    analyze_full_code = CONFIG.get("analyze_full_code", False)
+    pt_file_name = f"{encode_model_name}_code_embeddings{'_full' if analyze_full_code else ''}{'_method' if analyze_by_method else ''}"
+    if CONFIG["enrich_method_with_docstring"]:
+        pt_file_name = pt_file_name + "_MD"
+    if CONFIG["enrich_class_with_docstring"]:
+        pt_file_name = pt_file_name + "_CD"
+    if CONFIG["enrich_method_with_class_context"]:
+        pt_file_name = pt_file_name + "_MCC"
+    pt_file_name = pt_file_name + ".pt"
     return pt_file_name
 
 def process_analysis_files(directory):
@@ -25,10 +32,10 @@ def process_analysis_files(directory):
     处理指定目录下的所有_analysis.json文件，计算方法向量并保存
     """
     # 获取配置
-    encode_model_name = config.get("encode_model_name", "unixcoder")
-    analyze_by_method = config.get("analyze_by_method", False)
-    analyze_full_code = config.get("analyze_full_code", False)
-    batch_size = config.get("batch_size", 32) # 建议在config中添加batch_size，默认32或64
+    encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
+    analyze_by_method = CONFIG.get("analyze_by_method", False)
+    analyze_full_code = CONFIG.get("analyze_full_code", False)
+    batch_size = CONFIG.get("batch_size", 4) # 建议在config中添加batch_size，默认32或64
     
     pt_file_name = get_pt_file_name()
     pt_file_path = os.path.join(os.path.dirname(directory), pt_file_name)
@@ -43,7 +50,7 @@ def process_analysis_files(directory):
     print(f"编码器加载完成，向量维度: {embedding_dim}")
     
     # 将不变的路径计算移出循环
-    src_dir = os.path.join('data', config.get('repo', ''), 'origin_src')
+    src_dir = os.path.join('data', CONFIG.get('repo', ''), 'origin_src')
     
     print(f"正在读取与解析目录: {directory}")
     print("=" * 60)
@@ -87,9 +94,9 @@ def process_analysis_files(directory):
                     for cls in analysis_data["classes"]:
                         class_name = cls.get("name", "")
                         class_code = cls.get("original_code", "")
-
-                        if class_code:
-                            texts_to_encode.append(class_code)
+                        enriched_code = cls.get("enriched_code", "")
+                        if enriched_code and class_code:
+                            texts_to_encode.append(enriched_code)
                             file_paths.append(relative_path)
                             method_names.append("")  # 类的method_names为空
                             class_names.append(class_name)
@@ -99,9 +106,9 @@ def process_analysis_files(directory):
                             for method in cls.get("methods",[]):
                                 method_name = method.get("name", "")
                                 method_code = method.get("original_code", "")
-                                
-                                if method_code:
-                                    texts_to_encode.append(method_code)
+                                enriched_method_code = method.get("enriched_code", "")
+                                if enriched_method_code and method_code:
+                                    texts_to_encode.append(enriched_method_code)
                                     file_paths.append(relative_path)
                                     method_names.append(method_name)
                                     class_names.append(class_name)
@@ -158,7 +165,7 @@ def process_analysis_files(directory):
 
 if __name__ == "__main__":
     # 测试目录
-    test_directory = f"data\\{config['repo']}\\origin_src"
+    test_directory = f"data\\{CONFIG['repo']}\\origin_src"
     
     if os.path.exists(test_directory):
         process_analysis_files(test_directory)
