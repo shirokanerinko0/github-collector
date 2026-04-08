@@ -52,3 +52,10 @@ class UniXcoderEncoder(BaseEncoder):
             test_emb = self.encode(["test"])
             self._embedding_dim = test_emb.shape[1]
         return self._embedding_dim
+
+
+if __name__ == "__main__":
+    unixcoder_encoder = UniXcoderEncoder()
+    encode = unixcoder_encoder.encode(["你好", "你好吗"])
+    print(encode.shape)
+    print(encode)

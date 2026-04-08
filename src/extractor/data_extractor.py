@@ -116,7 +116,7 @@ class DataExtractor:
                 # 获取PR影响的文件列表
                 if github_api:
                     pr_data["change_files"] = github_api.get_pr_change_files(repo, pr)
-                
+                print(f"处理PR #{pr.number} 成功")
                 prs_list.append(pr_data)
             except Exception as item_error:
                 print(f"处理PR #{pr.number} 时出错: {str(item_error)}")

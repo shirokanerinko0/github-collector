@@ -108,7 +108,9 @@ def main():
 
     # 6. 分析代码，保存为_analysis.json
     analyze_code()
-
+    
+    # 7. 实现需求到代码的追踪链接
+    trace_links()
 
 def analyze_code():
     """

@@ -21,6 +21,32 @@ class BaseEncoder(ABC):
         pass
     
     @abstractmethod
+    def encode_query(self, texts):
+        """
+        将查询文本编码为向量
+        
+        Args:
+            query (str): 查询文本
+            
+        Returns:
+            numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
+        """
+        pass
+        
+    @abstractmethod
+    def encode_document(self, texts):
+        """
+        将文档文本编码为向量
+        
+        Args:
+            document (str): 文档文本
+            
+        Returns:
+            numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
+        """
+        pass
+        
+    @abstractmethod
     def get_embedding_dim(self):
         """
         获取嵌入向量的维度

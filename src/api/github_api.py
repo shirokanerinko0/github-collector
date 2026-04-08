@@ -243,50 +243,53 @@ class GitHubAPI:
             pulls_list = []
             count = 0
             for pr in pulls:
-                labels = [label.name for label in pr.labels]
+                #labels = [label.name for label in pr.labels]
                 if count >= limits["max_pull_requests"]:
                     break
                 # if any(label in CONFIG["filter_labels"] for label in labels):
                 # pr不做标签过滤
+                if not pr.merged:
+                    continue
                 pulls_list.append(pr)
+                print(f"当前获取到第 {count+1} 个PR: {pr.title}")
                 count += 1
             
-            # 记录API响应
-            if self.debug:
-                pulls_data = []
-                for pr in pulls_list:
-                    # 获取PR关联的commits
-                    pr_commits = []
-                    try:
-                        commits = pr.get_commits()
-                        for commit in commits:
-                            commit_info = {
-                                "sha": commit.sha,
-                                "message": commit.commit.message,
-                                "author": {
-                                    "name": commit.commit.author.name if commit.commit.author else None,
-                                    "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
-                                },
-                                "url": commit.html_url
-                            }
-                            pr_commits.append(commit_info)
-                    except Exception as e:
-                        print(f"获取PR {pr.number} 的commits失败: {str(e)}")
+            # # 记录API响应
+            # if self.debug:
+            #     pulls_data = []
+            #     for pr in pulls_list:
+            #         # 获取PR关联的commits
+            #         pr_commits = []
+            #         try:
+            #             commits = pr.get_commits()
+            #             for commit in commits:
+            #                 commit_info = {
+            #                     "sha": commit.sha,
+            #                     "message": commit.commit.message,
+            #                     "author": {
+            #                         "name": commit.commit.author.name if commit.commit.author else None,
+            #                         "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None
+            #                     },
+            #                     "url": commit.html_url
+            #                 }
+            #                 pr_commits.append(commit_info)
+            #         except Exception as e:
+            #             print(f"获取PR {pr.number} 的commits失败: {str(e)}")
                     
-                    pulls_data.append({
-                        "number": pr.number,
-                        "title": pr.title,
-                        "state": pr.state,
-                        "created_at": pr.created_at.isoformat() if pr.created_at else None,
-                        "merged": pr.merged,
-                        "merged_at": pr.merged_at.isoformat() if pr.merged_at else None,
-                        "user": pr.user.login if pr.user else None,
-                        "head": pr.head.ref,
-                        "base": pr.base.ref,
-                        "commits": pr_commits
-                    })
-                self._log_api_response(api_url, pulls_data)
-                # 重新获取pulls迭代器，因为之前的已经被消费
+            #         pulls_data.append({
+            #             "number": pr.number,
+            #             "title": pr.title,
+            #             "state": pr.state,
+            #             "created_at": pr.created_at.isoformat() if pr.created_at else None,
+            #             "merged": pr.merged,
+            #             "merged_at": pr.merged_at.isoformat() if pr.merged_at else None,
+            #             "user": pr.user.login if pr.user else None,
+            #             "head": pr.head.ref,
+            #             "base": pr.base.ref,
+            #             "commits": pr_commits
+            #         })
+            #     self._log_api_response(api_url, pulls_data)
+            #     # 重新获取pulls迭代器，因为之前的已经被消费
             return pulls_list
         except Exception as e:
             print(f"获取Pull Requests失败: {str(e)}")

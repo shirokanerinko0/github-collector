@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../'
 
 from src.utils.utils import load_config
 from file_operations.main import clean_repository
+CONFIG = load_config()
 
 
 def download_repository(owner=None, repo=None, target_dir=None, force=False, clean=True):
@@ -23,12 +24,11 @@ def download_repository(owner=None, repo=None, target_dir=None, force=False, cle
     Returns:
         str: 下载的仓库目录路径
     """
-    config = load_config()
     
     if owner is None:
-        owner = config.get("owner")
+        owner = CONFIG.get("owner")
     if repo is None:
-        repo = config.get("repo")
+        repo = CONFIG.get("repo")
     if target_dir is None:
         target_dir = os.path.join("data", repo, "origin_src")
     
@@ -48,7 +48,7 @@ def download_repository(owner=None, repo=None, target_dir=None, force=False, cle
     os.makedirs(os.path.dirname(target_dir), exist_ok=True)
     
     # 构建GitHub仓库URL
-    token = config.get("token", "")
+    token = CONFIG.get("token", "")
     if token:
         repo_url = f"https://{token}@github.com/{owner}/{repo}.git"
     else:
@@ -122,7 +122,7 @@ def download_without_git(owner=None, repo=None, target_dir=None, force=False, cl
     os.makedirs(os.path.dirname(target_dir), exist_ok=True)
     
     # 下载zip文件
-    zip_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/main.zip"
+    zip_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{CONFIG['main_branch']}.zip"
     print(f"正在下载: {zip_url}")
     
     try:

@@ -5,7 +5,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from src.model.base_encoder import BaseEncoder
 import src.model.model_manager as model_manager
+from src.utils.utils import load_config
 import torch
+import torch.nn.functional as F
+CONFIG = load_config()
 # print(torch.__version__)
 # print(torch.cuda.is_available())
 # print(torch.cuda.device_count())
@@ -32,8 +35,50 @@ class JinaCodeEncoder(BaseEncoder):
         Returns:
             numpy.ndarray: 编码后的向量数组，形状为 (len(texts), embedding_dim)
         """
-        return self.model.encode(texts, convert_to_tensor=True,show_progress_bar=False)
+        batch_size = CONFIG.get("encode_batch_size", 2)
+        return self.model.encode(texts, batch_size=batch_size, convert_to_tensor=True,show_progress_bar=False)
     
+    def encode_query(self, texts):
+        """
+        将查询文本编码为向量
+        
+        Args:
+            query (str): 查询文本
+            
+        Returns:
+            numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
+        """
+        batch_size = CONFIG.get("encode_batch_size", 2)
+        result =self.model.encode(
+            texts,
+            batch_size=batch_size, 
+            convert_to_tensor=True,
+            show_progress_bar=False,
+            prompt_name="nl2code_query"
+        )
+        return result
+
+    def encode_document(self, texts):
+        """
+        将代码片段编码为向量
+        
+        Args:
+            document (str): 代码片段
+            
+        Returns:
+            numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
+        """
+        batch_size = CONFIG.get("encode_batch_size", 2)
+        result =self.model.encode(
+            texts,
+            batch_size=batch_size, 
+            convert_to_tensor=True,
+            show_progress_bar=False,
+            prompt_name="nl2code_document"
+        )
+        return result
+
+
     def get_embedding_dim(self):
         """
         获取嵌入向量的维度
@@ -45,3 +90,13 @@ class JinaCodeEncoder(BaseEncoder):
             test_emb = self.encode(["test"])
             self._embedding_dim = test_emb.shape[1]
         return self._embedding_dim
+
+
+if __name__ == "__main__":
+    jina_code_encoder = JinaCodeEncoder()
+    encode = jina_code_encoder.encode_document(["cout << \"hello world\" << endl;"])
+    encode2 = jina_code_encoder.encode_query(["print \"hello world\" "])
+    print(encode.shape)
+    print(encode)
+    sim = F.cosine_similarity(encode, encode2)
+    print(sim.item()) # .item() 会自动把结果转成 Python 数值

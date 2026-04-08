@@ -5,7 +5,6 @@ import os,sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
 CONFIG = load_config()
-DEBUG = True
 
 
 class JavaCodeAnalyzer:
@@ -142,19 +141,20 @@ class JavaCodeAnalyzer:
             "implements": implements,
             "methods": [],
             "inner_classes": [],
-            "original_code": self._get_text(class_node)
+            "original_code": self._get_text(class_node),
+            "enriched_code": self._get_text(class_node)  # 初始化为原始代码
         }
 
-        # 3. 处理类体 (class_body)
+        # 处理类体 (class_body)
         body_node = class_node.child_by_field_name('body')
         if body_node:
             for member in body_node.children:
                 if member.type == 'method_declaration':
-                    method_info = self._process_method_node(member, is_constructor=False)
+                    method_info = self._process_method_node(member, is_constructor=False, class_info=class_info)
                     class_info["methods"].append(method_info)
                 
                 elif member.type == 'constructor_declaration':
-                    method_info = self._process_method_node(member, is_constructor=True)
+                    method_info = self._process_method_node(member, is_constructor=True, class_info=class_info)
                     class_info["methods"].append(method_info)
                 
                 elif member.type == 'class_declaration':
@@ -163,9 +163,22 @@ class JavaCodeAnalyzer:
                     if inner_class:
                         class_info["inner_classes"].append(inner_class)
 
+        # 生成类的 enriched_code
+        class_enriched_code = class_info["original_code"]
+        
+        # 如果配置了添加类注释，并且类有注释，在类声明前添加注释
+        if CONFIG.get("enrich_class_with_docstring", False):
+            # 获取类的注释
+            class_comment = self._get_comments(class_node)
+            if class_comment:
+                # 在类声明前添加注释
+                class_enriched_code = f"{class_comment}\n{class_enriched_code}"
+        
+        class_info["enriched_code"] = class_enriched_code
+
         return class_info
 
-    def _process_method_node(self, method_node, is_constructor=False):
+    def _process_method_node(self, method_node, is_constructor=False, class_info=None):
         """
         处理方法或构造函数节点
         """
@@ -230,11 +243,41 @@ class JavaCodeAnalyzer:
                     # 检查是否是注解（包括 marker_annotation 和 annotation）
                     if mod_child.type in ['marker_annotation', 'annotation']:
                         annotations.append(self._get_text(mod_child))
-        enriched_code = self._get_text(method_node)
-        if CONFIG["enrich_method_with_docstring"]:
+        
+        # 生成 enriched_code
+        method_code = self._get_text(method_node)
+        enriched_code = method_code
+        
+        # 添加类信息
+        if CONFIG["enrich_method_with_class_context"] and class_info:
+            # 构建类声明
+            class_modifiers = " ".join(class_info.get("modifiers", []))
+            class_name = class_info.get("name", "")
+            extends = class_info.get("extends", [])
+            implements = class_info.get("implements", [])
+            
+            class_declaration = f"public class {class_name}"
+            if class_modifiers:
+                class_declaration = f"{class_modifiers} class {class_name}"
+            if extends:
+                class_declaration += f" extends {extends[0]}"
+            if implements:
+                class_declaration += f" implements {', '.join(implements)}"
+            class_declaration += " {"
+            
+            # 构建完整的类上下文
+            class_context = f"{class_declaration}\n"
+            if CONFIG["enrich_method_with_docstring"] and comment:
+                # 处理注释的缩进
+                indented_comment = "    " + comment.replace("\n", "\n    ")
+                class_context += f"{indented_comment}\n"
+            class_context += f"    {enriched_code}\n"
+            class_context += "}"
+            
+            enriched_code = class_context
+        elif CONFIG["enrich_method_with_docstring"]:
+            # 只添加注释，不添加类信息
             enriched_code = f"{comment}\n{enriched_code}"
-        if CONFIG["enrich_method_with_class_context"]:
-            enriched_code = f"{enriched_code}"
 
         return {
             "name": method_name,
@@ -320,7 +363,7 @@ def analyze_directory(directory):
     
     print(f"正在分析目录: {directory}")
     print("=" * 60)
-    if not DEBUG:
+    if not CONFIG["re_analyze_code"]:
         for root, dirs, files in os.walk(directory):
             for file in files:
                 if file.endswith('_analysis.json'):
@@ -352,8 +395,8 @@ def analyze_directory(directory):
 # --- 测试代码 ---
 if __name__ == "__main__":
     test_directory = f"data\\{CONFIG['repo']}\\origin_src"
-    if DEBUG:
-        test_directory = f"src\\JavaCodeAnalyzer\\javacodetest"
+    # if DEBUG:
+    #     test_directory = f"src\\JavaCodeAnalyzer\\javacodetest"
     
     if os.path.exists(test_directory):
         analyze_directory(test_directory)

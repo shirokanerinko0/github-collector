@@ -73,10 +73,14 @@ def get_jina_code_model():
         
         print("正在加载 Jina Code Embeddings 模型...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        jina_code_model = SentenceTransformer(model_name, trust_remote_code=True, device=device)
-        jina_code_model.max_seq_length = 1024
-        if device == "cuda":
-            jina_code_model.half()
+        jina_code_model = SentenceTransformer(
+            model_name, 
+            trust_remote_code=True,
+            model_kwargs={"torch_dtype": "bfloat16"},
+            tokenizer_kwargs={"padding_side": "left"},
+            device=device
+        )
+        jina_code_model.max_seq_length = config.get("code_max_len", 2048)
         print("Jina Code Embeddings 模型加载完成")
     return jina_code_model
 
@@ -88,7 +92,15 @@ def get_jina_embeddings_v2_model():
         model_name = config.get("jina_embeddings_v2", {}).get("model_name", "jinaai/jina-embeddings-v2-base-code")
         
         print("正在加载 Jina Embeddings V2 模型...")
-        jina_embeddings_v2_model = SentenceTransformer(model_name, trust_remote_code=True)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        jina_embeddings_v2_model = SentenceTransformer(
+            model_name, 
+            trust_remote_code=True,
+            model_kwargs={"torch_dtype": "bfloat16"},
+            tokenizer_kwargs={"padding_side": "left"},
+            device=device
+        )
+        jina_embeddings_v2_model.max_seq_length = config.get("code_max_len", 2048)
         print("Jina Embeddings V2 模型加载完成")
     
     return jina_embeddings_v2_model
