@@ -1,7 +1,7 @@
 import os,sys,json
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
-config = load_config()
+CONFIG = load_config()
 def calculate_recall(links, change_files):
     """
     计算召回情况
@@ -30,7 +30,12 @@ def calculate_recall(links, change_files):
         # 标准化路径分隔符
         normalized_path = os.path.normpath(file_path)
         actual_file_set.add(normalized_path)
-    
+    exclude_files = set()
+    if CONFIG.get('filter_req_exclude_dirs', False):
+        for file in actual_file_set:
+            if any(exclude_dir in file for exclude_dir in CONFIG.get('exclude_dirs', [])):
+                exclude_files.add(file)
+    actual_file_set = actual_file_set - exclude_files
     # 提取预测链接的文件路径集合（标准化路径）
     predicted_file_set = set()
     for link in links:
@@ -51,5 +56,6 @@ def calculate_recall(links, change_files):
         'hit_count': hit_count,
         'recall': recall,
         'hit_files': list(hit_files),
-        'missed_files': list(missed_files)
+        'missed_files': list(missed_files),
+        'exclude_files': list(exclude_files)
     }
