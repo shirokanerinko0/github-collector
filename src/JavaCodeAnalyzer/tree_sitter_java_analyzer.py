@@ -5,6 +5,7 @@ import os,sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
 CONFIG = load_config()
+DEBUG = False
 
 
 class JavaCodeAnalyzer:

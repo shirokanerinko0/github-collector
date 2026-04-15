@@ -283,6 +283,15 @@ def trace_links():
             print(f"    - 文件: {link['file_path']}, 类: {link['class_name']}, 相似度: {link['similarity']:.4f}")
 
 
+def get_data():
+    # 根据模型名称生成pt文件名
+    pt_file_name = get_pt_file_name()
+    pt_file_path = os.path.join('data', CONFIG['repo'], pt_file_name)
+    if not os.path.exists(pt_file_path):
+        print(f"文件不存在: {pt_file_path}")
+        exit(1)
+    data_ = torch.load(pt_file_path)
+    return data_
 
 
 if __name__ == "__main__":
