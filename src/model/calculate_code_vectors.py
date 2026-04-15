@@ -24,6 +24,8 @@ def get_pt_file_name():
         pt_file_name = pt_file_name + "_CD"
     if CONFIG["enrich_method_with_class_context"]:
         pt_file_name = pt_file_name + "_MCC"
+    if CONFIG["analyze_method_comment"]:
+        pt_file_name = pt_file_name + "_MC"
     pt_file_name = pt_file_name + ".pt"
     return pt_file_name
 
@@ -113,6 +115,15 @@ def process_analysis_files(directory):
                                     method_names.append(method_name)
                                     class_names.append(class_name)
                                     original_codes.append(method_code)
+                                
+                                if CONFIG["analyze_method_comment"]:
+                                    method_comment = method.get("comments", "")
+                                    if method_comment:
+                                        texts_to_encode.append(method_comment)
+                                        file_paths.append(relative_path)
+                                        method_names.append(method_name)
+                                        class_names.append(class_name)
+                                        original_codes.append(method_comment)
                                     
                 except Exception as e:
                     print(f"解析文件 {file_path} 时出错: {e}")

@@ -27,24 +27,25 @@ def restore_original_config(original_config):
         json.dump(original_config, f, indent=2, ensure_ascii=False)
 
 # 修改配置
-def update_config(enrich_method, enrich_context):
+def update_config(enrich_method, enrich_context, analyze_comment):
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
         config = json.load(f)
     
     config['enrich_method_with_docstring'] = enrich_method
     config['enrich_method_with_class_context'] = enrich_context
+    config['analyze_method_comment'] = analyze_comment
     
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 # 运行测试
-def run_test(enrich_method, enrich_context):
+def run_test(enrich_method, enrich_context, analyze_comment):
     print(f"\n" + "=" * 80)
-    print(f"测试配置: enrich_method={enrich_method}, enrich_context={enrich_context}")
+    print(f"测试配置: enrich_method={enrich_method}, enrich_context={enrich_context}, analyze_comment={analyze_comment}")
     print("=" * 80)
     
     # 更新配置
-    update_config(enrich_method, enrich_context)
+    update_config(enrich_method, enrich_context, analyze_comment)
     
     # 运行 main.py（实时显示输出）
     print("\n开始运行 main.py...")
@@ -67,19 +68,23 @@ def main():
     original_config = save_original_config()
     
     try:
-        # 生成所有可能的配置组合（只测试两个配置）
+        # 生成所有可能的配置组合（测试三个配置）
         combinations = [
-            (False, False),  # 无增强
-            (False, True),   # 仅类上下文
-            (True, False),   # 仅方法注释
-            (True, True)     # 方法注释 + 类上下文
+            (False, False, False),  # 无增强
+            (False, False, True),   # 仅分析方法注释
+            (False, True, False),   # 仅类上下文
+            (False, True, True),    # 类上下文 + 分析方法注释
+            (True, False, False),   # 仅方法注释
+            (True, False, True),    # 方法注释 + 分析方法注释
+            (True, True, False),    # 方法注释 + 类上下文
+            (True, True, True)      # 方法注释 + 类上下文 + 分析方法注释
         ]
         
         
         # 运行所有组合
-        for i, (enrich_method, enrich_context) in enumerate(combinations, 1):
+        for i, (enrich_method, enrich_context, analyze_comment) in enumerate(combinations, 1):
             print(f"\n开始测试组合 {i}/{len(combinations)}")
-            run_test(enrich_method, enrich_context)
+            run_test(enrich_method, enrich_context, analyze_comment)
 
             
            

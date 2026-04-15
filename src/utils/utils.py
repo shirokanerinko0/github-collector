@@ -98,6 +98,8 @@ def get_trace_link_result_file_name():
         name = name + "_CD"
     if CONFIG["enrich_method_with_class_context"]:
         name = name + "_MCC"
+    if CONFIG["analyze_method_comment"]:
+        name = name + "_MC"
     return name + '.json'
 
 def get_requirements_processed_file_name():

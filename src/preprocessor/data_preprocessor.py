@@ -150,7 +150,7 @@ class DataPreprocessor:
                     processed_req["llm_category"] = llm_data.get("category")
                     search_query = llm_data.get("search_query")
                     if search_query:
-                        processed_req["search_query"] = req_query_prefix + title + "\n" + search_query
+                        processed_req["search_query"] = req_query_prefix + ((title + "\n")if CONFIG["requirement_processing"]["prefix_title"] else "") + search_query
                     else:
                         processed_req["search_query"] = req_query_prefix + full_text
                     processed_req["llm_reason"] = llm_data.get("reason")
@@ -171,7 +171,7 @@ class DataPreprocessor:
                         processed_req["search_query"] = req_query_prefix + full_text
                         processed_req["type"] = "default"
         else:
-            processed_req["search_query"] = req_query_prefix + full_text
+            processed_req["search_query"] = req_query_prefix + ((title + "\n")if CONFIG["requirement_processing"]["prefix_title"] else "") + description
             processed_req["type"] = "default"
 
         return processed_req

@@ -49,12 +49,13 @@ class JinaCodeEncoder(BaseEncoder):
             numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
         """
         batch_size = CONFIG.get("encode_batch_size", 2)
+        prompt_name=CONFIG["code_embedding"]["prompt_nl2code_query"]
         result =self.model.encode(
             texts,
             batch_size=batch_size, 
             convert_to_tensor=True,
             show_progress_bar=False,
-            prompt_name="nl2code_query"
+            prompt_name=prompt_name
         )
         return result
 
@@ -69,12 +70,13 @@ class JinaCodeEncoder(BaseEncoder):
             numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)
         """
         batch_size = CONFIG.get("encode_batch_size", 2)
+        prompt_name=CONFIG["code_embedding"]["prompt_nl2code_document"]
         result =self.model.encode(
             texts,
             batch_size=batch_size, 
             convert_to_tensor=True,
             show_progress_bar=False,
-            prompt_name="nl2code_document"
+            prompt_name=prompt_name
         )
         return result
 

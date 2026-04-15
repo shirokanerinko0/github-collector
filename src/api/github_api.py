@@ -243,12 +243,13 @@ class GitHubAPI:
             pulls_list = []
             count = 0
             for pr in pulls:
-                #labels = [label.name for label in pr.labels]
                 if count >= limits["max_pull_requests"]:
                     break
-                # if any(label in CONFIG["filter_labels"] for label in labels):
-                # pr不做标签过滤
-                if not pr.merged:
+                if CONFIG["pr_filter_labels"]: 
+                    labels = [label.name for label in pr.labels]
+                    if not any(label in CONFIG["pr_filter_labels"] for label in labels):
+                        continue
+                if not pr.merged and CONFIG.get("filter_unmerged_pr", True):
                     continue
                 pulls_list.append(pr)
                 print(f"当前获取到第 {count+1} 个PR: {pr.title}")

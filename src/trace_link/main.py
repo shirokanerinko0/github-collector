@@ -117,19 +117,31 @@ def process_files_with_encoder(req, change_files):
 
     for top_k in top_k_list:
         k = min(top_k, embeddings.shape[0])
-        topk_scores, topk_indices = torch.topk(similarities, k=k)
+        # 获取足够多的候选结果，确保有足够的不重复文件路径
+        candidate_k = min(k * 5, embeddings.shape[0])
+        topk_scores, topk_indices = torch.topk(similarities, k=candidate_k)
 
         links = []
+        seen_file_paths = set()  # 记录已经添加的文件路径
+        
+        # 遍历候选结果，确保文件路径不重复
         for score, idx in zip(topk_scores, topk_indices):
+            if len(links) >= k:  # 达到目标数量，停止
+                break
+                
             idx = idx.item()
-
-            links.append({
-                'file_path': data['file_paths'][idx],
-                'class_name': data['class_names'][idx],
-                'method_name': data['method_names'][idx],
-                'similarity': score.item(),
-                'original_code': data['original_code'][idx]
-            })
+            file_path = data['file_paths'][idx]
+            
+            # 如果文件路径还没出现过，添加到结果中
+            if file_path not in seen_file_paths:
+                seen_file_paths.add(file_path)
+                links.append({
+                    'file_path': file_path,
+                    'class_name': data['class_names'][idx],
+                    'method_name': data['method_names'][idx],
+                    'similarity': score.item(),
+                    'original_code': data['original_code'][idx]
+                })
         links_all[top_k] = links
 
     return links_all
