@@ -5,6 +5,7 @@ config.json
 .vscode/
 .trae/*
 # 缓存文件
+cache/
 __pycache__/
 *.pyc
 *.pt

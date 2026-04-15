@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import os
+import requests_cache
+# 创建缓存目录
+os.makedirs('cache', exist_ok=True)
+# 是否启用缓存
+USE_CACHE = True
+if USE_CACHE:
+    requests_cache.install_cache(
+        cache_name='cache/github_cache',
+        backend='sqlite',
+        expire_after=24 * 3600 * 70
+    )
 from src.model.calculate_code_vectors import process_analysis_files
 from src.JavaCodeAnalyzer.tree_sitter_java_analyzer import analyze_directory
 from file_operations.download import download_repository_main
 """
 主文件，整合各层功能模块
 """
-import os
 from src.utils.utils import load_config, save_data, get_requirements_processed_file_name
 from src.api.github_api import GitHubAPI
 from src.extractor.data_extractor import DataExtractor

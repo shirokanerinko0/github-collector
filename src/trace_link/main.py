@@ -43,6 +43,11 @@ def load_requirements():
             return json.load(f)
     return []
 
+def filter_req_by_type(requirements):
+    """过滤需求类型"""
+    req_type_list = CONFIG['req_type']
+    return [req for req in requirements if req.get('type', '') in req_type_list]
+
 def get_source_file_path(file_path):
     """获取源代码文件的完整路径"""
     # 从 change_files 中的相对路径转换为绝对路径
@@ -162,6 +167,12 @@ def trace_links():
     requirements = load_requirements()
     print(f"加载了 {len(requirements)} 个需求")
     
+    if CONFIG['requirement_processing']['filter_invalid_issues']:
+    # 过滤无效需求
+        print(f"开始过滤需求，保留类型: {CONFIG['req_type']}")
+        requirements = filter_req_by_type(requirements)
+        print(f"过滤后 {len(requirements)} 个需求")
+
     results = []
     
     # 整体统计（按topk分别统计）
@@ -174,6 +185,8 @@ def trace_links():
             'total_change_files': 0,
             'total_hit_files': 0,
             'top_k': top_k,
+            'average_recall': 0.0,  # 平均召回率
+            'total_recall_sum': 0.0  # 召回率总和
         }
     
     for req in requirements:
@@ -215,6 +228,8 @@ def trace_links():
                 stats['total_hit_files'] += recall_info['hit_count']
                 if recall_info['hit_count'] > 0:
                     stats['requirements_with_at_least_one_hit'] += 1
+                # 累加召回率总和
+                stats['total_recall_sum'] += recall_info['recall']
         
         # 选择最大topk的链接作为主链接
         max_topk = max(top_k_list)
@@ -235,12 +250,18 @@ def trace_links():
         
         results.append(result_item)
     
-    # 计算整体召回率
+    # 计算整体召回率和平均召回率
     for top_k, stats in overall_stats.items():
         if stats['total_change_files'] > 0:
             stats['overall_recall'] = stats['total_hit_files'] / stats['total_change_files']
         else:
             stats['overall_recall'] = 0.0
+        
+        # 计算平均召回率
+        if stats['requirements_with_change_files'] > 0:
+            stats['average_recall'] = stats['total_recall_sum'] / stats['requirements_with_change_files']
+        else:
+            stats['average_recall'] = 0.0
     
     # 准备最终输出
     final_output = {
@@ -267,6 +288,7 @@ def trace_links():
         print(f"  总变更文件数: {stats['total_change_files']}")
         print(f"  命中文件数: {stats['total_hit_files']}")
         print(f"  整体召回率: {stats.get('overall_recall', 0):.4f}")
+        print(f"  平均召回率: {stats.get('average_recall', 0):.4f}")
         print("=" * 60)
     
     # 打印前几个需求的结果

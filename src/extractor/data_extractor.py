@@ -95,6 +95,10 @@ class DataExtractor:
         prs_list = []
         for pr in prs:
             try:
+                labels = []
+                if pr.labels:
+                    labels = [label.name for label in pr.labels]
+                
                 pr_data = {
                     "id": pr.id,
                     "number": pr.number,
@@ -106,7 +110,7 @@ class DataExtractor:
                     "merged_at": pr.merged_at,
                     "user": pr.user.login if pr.user else "",
                     "assignee": pr.assignee.login if pr.assignee else None,
-                    "labels": [label.name for label in pr.labels],
+                    "labels": labels,
                     "head": pr.head.ref,
                     "base": pr.base.ref,
                     "merged": pr.merged,

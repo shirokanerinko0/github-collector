@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from github import Github
+from github import GithubRetry
 from src.utils.utils import load_config
 import github.Auth
 import json
@@ -22,6 +23,13 @@ CONFIG = load_config()
 limits = CONFIG["limits"]
 # 全局DEBUG变量，用于控制debug模式
 DEBUG = True
+retry_strategy = GithubRetry(
+    total=5,              # 总重试次数
+    backoff_factor=2,     # 指数退避因子 (重试间隔会变成 2s, 4s, 8s...)
+    status_forcelist=[500, 502, 503, 504], # 遇到这些服务器错误时重试
+    secondary_rate_wait=60 # 遇到 GitHub 的二次速率限制时等待的时间
+)
+
 
 class GitHubAPI:
     """
@@ -53,7 +61,10 @@ class GitHubAPI:
         
         # 使用新的认证方式
         auth = github.Auth.Token(access_token)
-        self.g = Github(auth=auth)
+        self.g = Github(auth=auth,
+        retry=retry_strategy,
+        timeout=50
+        )
     
     def _init_logger(self):
         """
@@ -237,9 +248,9 @@ class GitHubAPI:
         :return: Pull Requests列表
         """
         api_url = f"https://api.github.com/repos/{repo.owner.login}/{repo.name}/pulls?state={state}"
-        
+        query = f"repo:{CONFIG['owner']}/{CONFIG['repo']} is:pr is:merged"
         try:
-            pulls = repo.get_pulls(state=state)
+            pulls = self.g.search_issues(query=query)
             pulls_list = []
             count = 0
             for pr in pulls:
@@ -249,8 +260,7 @@ class GitHubAPI:
                     labels = [label.name for label in pr.labels]
                     if not any(label in CONFIG["pr_filter_labels"] for label in labels):
                         continue
-                if not pr.merged and CONFIG.get("filter_unmerged_pr", True):
-                    continue
+                pr = pr.as_pull_request()
                 pulls_list.append(pr)
                 print(f"当前获取到第 {count+1} 个PR: {pr.title}")
                 count += 1

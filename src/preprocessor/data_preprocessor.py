@@ -19,7 +19,6 @@ from src.utils.utils import load_config
 import json
 CONFIG = load_config()
 use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
-filter_invalid_issues = CONFIG["requirement_processing"]["filter_invalid_issues"]
 req_query_prefix = CONFIG["requirement_processing"]["req_query_prefix"]
 
 # 导入LLM处理函数
@@ -198,11 +197,6 @@ class DataPreprocessor:
             for future in as_completed(future_to_req):
                 processed_req = future.result()
                 
-                if use_llm_processing and filter_invalid_issues:
-                    if processed_req.get("llm_category") not in CONFIG["req_type"]:
-                        req_id = processed_req.get('req_id', '')
-                        print(f"跳过无效需求 {req_id}")
-                        continue
                 
                 processed_requirements.append(processed_req)
         
