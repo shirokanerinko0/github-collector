@@ -92,14 +92,9 @@ def get_trace_link_result_file_name():
         +(f'_{encode_model_name}' if encode_model_name else '')
         +(f'_top{top_k_str}' if top_k else '')
         )
-    if CONFIG["enrich_method_with_docstring"]:
-        name = name + "_MD"
-    if CONFIG["enrich_class_with_docstring"]:
-        name = name + "_CD"
-    if CONFIG["enrich_method_with_class_context"]:
-        name = name + "_MCC"
-    if CONFIG["analyze_method_comment"]:
-        name = name + "_MC"
+    code_snippet_types = CONFIG.get("code_snippet", [])
+    if code_snippet_types:
+        name = name + "_" + "_".join(code_snippet_types)
     return name + '.json'
 
 def get_requirements_processed_file_name():

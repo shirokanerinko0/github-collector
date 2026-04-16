@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.utils.utils import load_config
 CONFIG = load_config()
 DEBUG = False
-
+re_analyze_code = CONFIG["re_analyze_code"]
 
 class JavaCodeAnalyzer:
     def __init__(self):
@@ -142,9 +142,26 @@ class JavaCodeAnalyzer:
             "implements": implements,
             "methods": [],
             "inner_classes": [],
-            "original_code": self._get_text(class_node),
-            "enriched_code": self._get_text(class_node)  # 初始化为原始代码
+            "original_code": self._get_text(class_node)
         }
+        
+        # 获取类的注释
+        class_comment = self._get_comments(class_node)
+        
+        # 生成类的所有代码片段变体
+        class_info["code_snippets"] = {}
+        
+        # 原始类代码 (default)
+        class_info["code_snippets"]["default"] = class_info["original_code"]
+        
+        # 类+注释 (CD: class with docstring)
+        if class_comment:
+            class_info["code_snippets"]["CD"] = f"{class_comment}\n{class_info['original_code']}"
+        else:
+            class_info["code_snippets"]["CD"] = class_info["original_code"]
+        
+        # 设置默认 enriched_code（使用原始代码作为默认值）
+        class_info["enriched_code"] = class_info["code_snippets"]["default"]
 
         # 处理类体 (class_body)
         body_node = class_node.child_by_field_name('body')
@@ -163,19 +180,9 @@ class JavaCodeAnalyzer:
                     inner_class = self._process_class_node(member)
                     if inner_class:
                         class_info["inner_classes"].append(inner_class)
-
-        # 生成类的 enriched_code
-        class_enriched_code = class_info["original_code"]
         
-        # 如果配置了添加类注释，并且类有注释，在类声明前添加注释
-        if CONFIG.get("enrich_class_with_docstring", False):
-            # 获取类的注释
-            class_comment = self._get_comments(class_node)
-            if class_comment:
-                # 在类声明前添加注释
-                class_enriched_code = f"{class_comment}\n{class_enriched_code}"
-        
-        class_info["enriched_code"] = class_enriched_code
+        # 添加类的最终 enriched_code（使用原始代码作为默认值）
+        class_info["enriched_code"] = class_info["code_snippets"].get("default", class_info["original_code"])
 
         return class_info
 
@@ -245,12 +252,20 @@ class JavaCodeAnalyzer:
                     if mod_child.type in ['marker_annotation', 'annotation']:
                         annotations.append(self._get_text(mod_child))
         
-        # 生成 enriched_code
+        # 获取原始方法代码
         method_code = self._get_text(method_node)
-        enriched_code = method_code
         
-        # 添加类信息
-        if CONFIG["enrich_method_with_class_context"] and class_info:
+        # 生成代码片段字典，包含所有变体
+        code_snippets = {
+            "default": method_code,
+        }
+        
+        # 方法+注释 (MD: method with docstring)
+        if comment:
+            code_snippets["MD"] = f"{comment}\n{method_code}"
+        
+        # 如果有类上下文
+        if class_info:
             # 构建类声明
             class_modifiers = " ".join(class_info.get("modifiers", []))
             class_name = class_info.get("name", "")
@@ -266,20 +281,25 @@ class JavaCodeAnalyzer:
                 class_declaration += f" implements {', '.join(implements)}"
             class_declaration += " {"
             
-            # 构建完整的类上下文
-            class_context = f"{class_declaration}\n"
-            if CONFIG["enrich_method_with_docstring"] and comment:
-                # 处理注释的缩进
-                indented_comment = "    " + comment.replace("\n", "\n    ")
-                class_context += f"{indented_comment}\n"
-            class_context += f"    {enriched_code}\n"
-            class_context += "}"
+            # 方法+类上下文 (MCC: method with class context)
+            method_with_context = f"{class_declaration}\n    {method_code}\n}}"
+            code_snippets["MCC"] = method_with_context
             
-            enriched_code = class_context
-        elif CONFIG["enrich_method_with_docstring"]:
-            # 只添加注释，不添加类信息
-            enriched_code = f"{comment}\n{enriched_code}"
-
+            # 方法+注释+类上下文 (MDCC)
+            if comment:
+                indented_comment = "    " + comment.replace("\n", "\n    ")
+                method_with_context_and_doc = f"{class_declaration}\n    {indented_comment}\n    {method_code}\n}}"
+                code_snippets["MDCC"] = method_with_context_and_doc
+            else:
+                code_snippets["MDCC"] = method_with_context
+        
+        # 设置默认 enriched_code（使用原始代码作为默认值）
+        final_enriched_code = method_code
+        # for type,code in code_snippets.items():
+        #     print(type)
+        #     print(code)
+        #     print()
+        
         return {
             "name": method_name,
             "is_constructor": is_constructor,
@@ -289,8 +309,9 @@ class JavaCodeAnalyzer:
             "parameters": parameters,
             "called_functions": called_functions,
             "comments": comment,
-            "original_code": self._get_text(method_node),
-            "enriched_code": enriched_code
+            "original_code": method_code,
+            "enriched_code": final_enriched_code,
+            "code_snippets": code_snippets
         }
 
     def _get_comments(self, node):
@@ -364,7 +385,7 @@ def analyze_directory(directory):
     
     print(f"正在分析目录: {directory}")
     print("=" * 60)
-    if not CONFIG["re_analyze_code"]:
+    if not re_analyze_code :
         for root, dirs, files in os.walk(directory):
             for file in files:
                 if file.endswith('_analysis.json'):
@@ -388,6 +409,8 @@ def analyze_directory(directory):
                     print()
                 except Exception as e:
                     print(f"分析文件 {file_path} 时出错: {e}")
+                    import traceback
+                    traceback.print_exc()
                     exit(1)
     
     print("=" * 60)
@@ -396,8 +419,6 @@ def analyze_directory(directory):
 # --- 测试代码 ---
 if __name__ == "__main__":
     test_directory = f"data\\{CONFIG['repo']}\\origin_src"
-    # if DEBUG:
-    #     test_directory = f"src\\JavaCodeAnalyzer\\javacodetest"
     
     if os.path.exists(test_directory):
         analyze_directory(test_directory)

@@ -1,6 +1,7 @@
 import os,sys,json
 import torch
 import numpy as np
+from tqdm import tqdm
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.model.calculate_code_vectors import get_pt_file_name
 from src.utils.utils import load_config, get_trace_link_result_file_name, get_requirements_processed_file_name
@@ -97,7 +98,9 @@ def check_requirement_code_relation_llm(req, file_path, code_snippet=""):
 
 
 def process_files_with_encoder(req, change_files):
-
+    # 获取配置的代码片段类型
+    code_snippet_types = CONFIG.get("code_snippet", ["default"])
+    
     links_all = {}
 
     # 构建需求文本
@@ -107,6 +110,7 @@ def process_files_with_encoder(req, change_files):
     req_embedding = torch.tensor(req_embedding)
 
     embeddings = data['embeddings']
+    snippet_types = data.get('snippet_types', [])
     device = req_embedding.device
     embeddings = embeddings.to(device)
 
@@ -136,16 +140,31 @@ def process_files_with_encoder(req, change_files):
                 
             idx = idx.item()
             file_path = data['file_paths'][idx]
+            snippet_type = snippet_types[idx] if idx < len(snippet_types) else "unknown"
+            
+            # 根据配置过滤代码片段类型
+            # snippet_type 格式: "method_default", "class_CD", "method_MC", "code_FC" 等
+            # code_snippet 配置: ["default", "MC", "CD", "MD", "MCC", "MDCC", "FC"]
+            # 提取类型后缀，检查是否在配置中
+            if "_" in snippet_type:
+                suffix = snippet_type.split("_", 1)[1]
+                should_include = suffix in code_snippet_types
+            else:
+                should_include = snippet_type in code_snippet_types
+            
+            if not should_include:
+                continue
             
             # 如果文件路径还没出现过，添加到结果中
-            if file_path not in seen_file_paths:
+            if not CONFIG["unique_file_only"] or (file_path not in seen_file_paths):
                 seen_file_paths.add(file_path)
                 links.append({
                     'file_path': file_path,
                     'class_name': data['class_names'][idx],
                     'method_name': data['method_names'][idx],
                     'similarity': score.item(),
-                    'original_code': data['original_code'][idx]
+                    'original_code': data['original_code'][idx],
+                    'snippet_type': snippet_type
                 })
         links_all[top_k] = links
 
@@ -189,12 +208,11 @@ def trace_links():
             'total_recall_sum': 0.0  # 召回率总和
         }
     
-    for req in requirements:
+    for req in tqdm(requirements, desc="已完成追踪连接需求："):
         req_id = req.get('req_id')
         req_title = req.get('title')
         change_files = req.get('change_files', [])
         has_change_files = len(change_files) > 0
-        print(f"\n处理需求: {req_id} - {req_title}")
         
         # 处理文件并计算相似度
         links_all = process_files_with_encoder(req, change_files)
@@ -270,7 +288,7 @@ def trace_links():
     }
     
     # 保存结果
-    output_file = os.path.join('data', CONFIG['repo'], get_trace_link_result_file_name())
+    output_file = os.path.join('data', CONFIG['repo'],'trace_link_results', get_trace_link_result_file_name())
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_output, f, indent=2, ensure_ascii=False, separators=(',', ': '))

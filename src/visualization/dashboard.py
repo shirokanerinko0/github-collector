@@ -101,7 +101,7 @@ def get_available_repos():
     return sorted(repos)
 
 def get_trace_link_files(repo):
-    repo_path = os.path.join(DATA_DIR, repo)
+    repo_path = os.path.join(DATA_DIR, repo, 'trace_link_results')
     if not os.path.exists(repo_path):
         return []
     files = []
@@ -111,7 +111,7 @@ def get_trace_link_files(repo):
     return sorted(files, reverse=True)
 
 def load_trace_link_data(repo, filename):
-    filepath = os.path.join(DATA_DIR, repo, filename)
+    filepath = os.path.join(DATA_DIR, repo, 'trace_link_results', filename)
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -238,7 +238,17 @@ def main():
         
         analyze_by_method = st.checkbox("按方法分析", value=config.get('analyze_by_method', True))
         analyze_full_code = st.checkbox("分析完整代码", value=config.get('analyze_full_code', False))
-        
+
+        st.subheader("代码片段配置")
+        code_snippet_types = st.multiselect(
+            "代码片段类型",
+            options=["default", "MC", "MCC", "MD", "MD+MCC", "CD", "FC"],
+            default=config.get('code_snippet', ["default"]),
+            help="选择要使用的代码片段类型"
+        )
+
+        unique_file_only = st.checkbox("同文件只保留一个", value=config.get('unique_file_only', False))
+
         if st.button("保存配置", use_container_width=True):
             new_config = config.copy()
             new_config['owner'] = owner
@@ -256,6 +266,8 @@ def main():
             new_config['trace_link']['use_llm'] = use_llm_trace
             new_config['analyze_by_method'] = analyze_by_method
             new_config['analyze_full_code'] = analyze_full_code
+            new_config['code_snippet'] = code_snippet_types
+            new_config['unique_file_only'] = unique_file_only
             save_config(new_config)
             st.success("配置已保存!")
     
@@ -596,8 +608,9 @@ def main():
                                         st.markdown(f"**文件:** `{link['file_path']}`")
                                         st.markdown(f"**类:** `{link['class_name']}`")
                                         st.markdown(f"**方法:** `{link.get('method_name', 'N/A')}`")
+                                        st.markdown(f"**片段类型:** `{link.get('snippet_type', 'N/A')}`")
                                         st.markdown(f"**相似度:** `{link['similarity']:.4f}`")
-                                    
+
                                     with col_y:
                                         st.code(link.get('original_code', '无代码'), language='java')
                             

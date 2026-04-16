@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 # 添加项目根目录到Python路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from src.utils.utils import load_config
+from src.utils.utils import load_config,save_data
 from src.model.encoder_factory import EncoderFactory
 CONFIG = load_config()
 ##排除的目录路径
@@ -15,18 +15,10 @@ DEBUG = True
 
 def get_pt_file_name():
     encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
-    analyze_by_method = CONFIG.get("analyze_by_method", False)
-    analyze_full_code = CONFIG.get("analyze_full_code", False)
-    pt_file_name = f"{encode_model_name}_code_embeddings{'_full' if analyze_full_code else ''}{'_method' if analyze_by_method else ''}"
-    if CONFIG["enrich_method_with_docstring"]:
-        pt_file_name = pt_file_name + "_MD"
-    if CONFIG["enrich_class_with_docstring"]:
-        pt_file_name = pt_file_name + "_CD"
-    if CONFIG["enrich_method_with_class_context"]:
-        pt_file_name = pt_file_name + "_MCC"
-    if CONFIG["analyze_method_comment"]:
-        pt_file_name = pt_file_name + "_MC"
-    pt_file_name = pt_file_name + ".pt"
+    analyze_by_method = CONFIG.get("analyze_by_method", True)
+    pt_file_name = f"{encode_model_name}_code_embeddings{'_method' if analyze_by_method else ''}"
+
+    pt_file_name = pt_file_name + "_all.pt"
     return pt_file_name
 
 def process_analysis_files(directory):
@@ -35,9 +27,9 @@ def process_analysis_files(directory):
     """
     # 获取配置
     encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
-    analyze_by_method = CONFIG.get("analyze_by_method", False)
-    analyze_full_code = CONFIG.get("analyze_full_code", False)
-    batch_size = CONFIG.get("tqdm_batch_size", 4) # 建议在config中添加batch_size，默认32或64
+    analyze_by_method = CONFIG.get("analyze_by_method", True)
+    batch_size = CONFIG.get("tqdm_batch_size", 4)
+    
     
     pt_file_name = get_pt_file_name()
     pt_file_path = os.path.join(os.path.dirname(directory), pt_file_name)
@@ -60,18 +52,18 @@ def process_analysis_files(directory):
     exclude_count = 0
     
     # 临时列表，用于收集所有待编码的数据
-    texts_to_encode =[]
+    texts_to_encode = []
     file_paths = []
     method_names = []
-    class_names =[]
-    original_codes =[]
+    class_names = []
+    original_codes = []
+    snippet_types = []  # 新增：代码片段类型
 
     # 第一阶段：极速遍历与解析文件（不涉及深度学习计算）
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith('_analysis.json'):
                 file_path = os.path.join(root, file)
-                
                 # 排除指定目录
                 if any(exclude_dir in file_path for exclude_dir in exclude_dirs):
                     exclude_count += 1
@@ -82,48 +74,58 @@ def process_analysis_files(directory):
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         analysis_data = json.load(f)
-                    source_code = analysis_data.get("source_code", "")    
-                    if analyze_full_code:
-                        texts_to_encode.append(source_code)
-                        file_paths.append(relative_path)
-                        method_names.append("")  # 类的method_names为空
-                        class_names.append("")  # 类的class_names为空
-                        original_codes.append(source_code)
-                        
+                    source_code = analysis_data.get("source_code", "")
+                    
+                    # 处理完整代码
+                    texts_to_encode.append(source_code)
+                    file_paths.append(relative_path)
+                    method_names.append("")
+                    class_names.append("")
+                    original_codes.append(source_code)
+                    snippet_types.append("code_FC")
+                    
                     if not analysis_data.get("classes"):
                         continue
-                        
+                    
                     for cls in analysis_data["classes"]:
                         class_name = cls.get("name", "")
                         class_code = cls.get("original_code", "")
-                        enriched_code = cls.get("enriched_code", "")
-                        if enriched_code and class_code:
-                            texts_to_encode.append(enriched_code)
+                        class_snippets = cls.get("code_snippets", {"default": class_code})
+                        
+                        # 处理类的所有代码片段类型（编码所有类型）
+                        for snippet_type, snippet_code in class_snippets.items():
+                            texts_to_encode.append(snippet_code)
                             file_paths.append(relative_path)
-                            method_names.append("")  # 类的method_names为空
+                            method_names.append("")
                             class_names.append(class_name)
                             original_codes.append(class_code)
+                            snippet_types.append(f"class_{snippet_type}")
                         
+                        # 处理方法
                         if analyze_by_method:
-                            for method in cls.get("methods",[]):
+                            for method in cls.get("methods", []):
                                 method_name = method.get("name", "")
                                 method_code = method.get("original_code", "")
-                                enriched_method_code = method.get("enriched_code", "")
-                                if enriched_method_code and method_code:
-                                    texts_to_encode.append(enriched_method_code)
+                                method_snippets = method.get("code_snippets", {"default": method_code})
+                                
+                                # 处理方法的所有代码片段类型（编码所有类型）
+                                for snippet_type, snippet_code in method_snippets.items():
+                                    texts_to_encode.append(snippet_code)
                                     file_paths.append(relative_path)
                                     method_names.append(method_name)
                                     class_names.append(class_name)
                                     original_codes.append(method_code)
+                                    snippet_types.append(f"method_{snippet_type}")
                                 
-                                if CONFIG["analyze_method_comment"]:
-                                    method_comment = method.get("comments", "")
-                                    if method_comment:
-                                        texts_to_encode.append(method_comment)
-                                        file_paths.append(relative_path)
-                                        method_names.append(method_name)
-                                        class_names.append(class_name)
-                                        original_codes.append(method_comment)
+                                # 处理方法注释 (MC)
+                                method_comment = method.get("comments", "")
+                                if method_comment:
+                                    texts_to_encode.append(method_comment)
+                                    file_paths.append(relative_path)
+                                    method_names.append(method_name)
+                                    class_names.append(class_name)
+                                    original_codes.append(method_comment)
+                                    snippet_types.append("method_MC")
                                     
                 except Exception as e:
                     print(f"解析文件 {file_path} 时出错: {e}")
@@ -137,7 +139,7 @@ def process_analysis_files(directory):
     print(f"\n共解析到 {total_samples} 个代码片段，过滤了 {exclude_count} 个文件。")
     print(f"开始批量提取向量 (Batch Size: {batch_size})...")
     
-    all_embeddings =[]
+    all_embeddings = []
     
     # 使用 tqdm 分批次进行编码，防止 OOM (显存/内存溢出)
     for i in tqdm(range(0, total_samples, batch_size), desc="编码进度"):
@@ -153,6 +155,7 @@ def process_analysis_files(directory):
             
         all_embeddings.append(batch_emb.cpu())
         torch.cuda.empty_cache()
+    
     # 将所有的批次拼接起来
     final_embeddings = torch.cat(all_embeddings, dim=0)
     
@@ -163,10 +166,11 @@ def process_analysis_files(directory):
         "method_names": method_names,
         "class_names": class_names,
         "original_code": original_codes,
+        "encode_code": texts_to_encode,
+        "snippet_types": snippet_types,
         "model_name": encode_model_name,
         "dimension": embedding_dim
     }
-    
     # 保存结果
     output_path = os.path.join(os.path.dirname(directory), pt_file_name)
     torch.save(data, output_path)
