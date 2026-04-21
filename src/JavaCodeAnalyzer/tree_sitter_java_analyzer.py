@@ -5,7 +5,6 @@ import os,sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.utils.utils import load_config
 CONFIG = load_config()
-DEBUG = False
 re_analyze_code = CONFIG["re_analyze_code"]
 
 class JavaCodeAnalyzer:
@@ -64,19 +63,19 @@ class JavaCodeAnalyzer:
 
     def _find_and_process_classes(self, node, class_list, depth=0):
         """
-        递归查找并处理类声明
+        递归查找并处理类声明和接口声明
         """
-        if depth > 10: return # 防止过深
+        if depth > 10: return
 
-        # 遍历当前层级的子节点
         for child in node.children:
             if child.type == 'class_declaration':
                 class_info = self._process_class_node(child)
                 if class_info:
                     class_list.append(class_info)
-            
-            # 如果不是类定义，但可能包含类（比如模块定义等），可以在这里扩展
-            # 对于内部类，我们会在 _process_class_node 内部递归处理，所以这里不需要深层递归
+            elif child.type == 'interface_declaration':
+                interface_info = self._process_interface_node(child)
+                if interface_info:
+                    class_list.append(interface_info)
 
     def _process_class_node(self, class_node):
         """
@@ -135,6 +134,7 @@ class JavaCodeAnalyzer:
                                     implements.append(trimmed_name)
 
         class_info = {
+            "type": "class",
             "name": class_name,
             "modifiers": modifiers,
             "annotations": annotations,
@@ -151,17 +151,19 @@ class JavaCodeAnalyzer:
         # 生成类的所有代码片段变体
         class_info["code_snippets"] = {}
         
-        # 原始类代码 (default)
-        class_info["code_snippets"]["default"] = class_info["original_code"]
+        # 原始类代码 (CO：class original)
+        class_info["code_snippets"]["CO"] = class_info["original_code"]
         
         # 类+注释 (CD: class with docstring)
         if class_comment:
             class_info["code_snippets"]["CD"] = f"{class_comment}\n{class_info['original_code']}"
+                # 类注释 (CC: class comment)
+            class_info["code_snippets"]["CC"] = f"{class_comment}"
         else:
             class_info["code_snippets"]["CD"] = class_info["original_code"]
         
         # 设置默认 enriched_code（使用原始代码作为默认值）
-        class_info["enriched_code"] = class_info["code_snippets"]["default"]
+        class_info["enriched_code"] = class_info["code_snippets"]["CO"]
 
         # 处理类体 (class_body)
         body_node = class_node.child_by_field_name('body')
@@ -185,6 +187,184 @@ class JavaCodeAnalyzer:
         class_info["enriched_code"] = class_info["code_snippets"].get("default", class_info["original_code"])
 
         return class_info
+
+    def _process_interface_node(self, interface_node):
+        """
+        处理单个接口节点
+        """
+        name_node = interface_node.child_by_field_name('name')
+        interface_name = self._get_text(name_node)
+        if not interface_name: return None
+
+        modifiers = []
+        for child in interface_node.children:
+            if child.type == "modifiers":
+                for mod in child.children:
+                    if mod.type not in ['marker_annotation', 'annotation']:
+                        modifiers.append(self._get_text(mod))
+
+        annotations = []
+        for child in interface_node.children:
+            if child.type == 'modifiers':
+                for mod_child in child.children:
+                    if mod_child.type in ['marker_annotation', 'annotation']:
+                        annotations.append(self._get_text(mod_child))
+
+        extends = []
+        for child in interface_node.children:
+            if child.type == 'super_interfaces':
+                for interface_child in child.children:
+                    if interface_child.type != 'comma' and interface_child.type != 'extends':
+                        interface_text = self._get_text(interface_child).strip()
+                        if interface_text:
+                            for interface_name in interface_text.split(','):
+                                trimmed_name = interface_name.strip()
+                                if trimmed_name:
+                                    extends.append(trimmed_name)
+
+        interface_info = {
+            "type": "interface",
+            "name": interface_name,
+            "modifiers": modifiers,
+            "annotations": annotations,
+            "extends": extends,
+            "methods": [],
+            "inner_interfaces": [],
+            "inner_classes": [],
+            "original_code": self._get_text(interface_node)
+        }
+
+        interface_comment = self._get_comments(interface_node)
+
+        interface_info["code_snippets"] = {}
+
+        interface_info["code_snippets"]["IO"] = interface_info["original_code"]
+
+        if interface_comment:
+            interface_info["code_snippets"]["ID"] = f"{interface_comment}\n{interface_info['original_code']}"
+            interface_info["code_snippets"]["IC"] = f"{interface_comment}"
+        else:
+            interface_info["code_snippets"]["ID"] = interface_info["original_code"]
+
+        interface_info["enriched_code"] = interface_info["code_snippets"]["IO"]
+
+        body_node = interface_node.child_by_field_name('body')
+        if body_node:
+            for member in body_node.children:
+                if member.type == 'method_declaration':
+                    method_info = self._process_interface_method_node(member, interface_info=interface_info)
+                    interface_info["methods"].append(method_info)
+
+                elif member.type == 'interface_declaration':
+                    inner_interface = self._process_interface_node(member)
+                    if inner_interface:
+                        interface_info["inner_interfaces"].append(inner_interface)
+
+                elif member.type == 'class_declaration':
+                    inner_class = self._process_class_node(member)
+                    if inner_class:
+                        interface_info["inner_classes"].append(inner_class)
+
+        interface_info["enriched_code"] = interface_info["code_snippets"].get("default", interface_info["original_code"])
+
+        return interface_info
+
+    def _process_interface_method_node(self, method_node, interface_info=None):
+        """
+        处理接口方法节点
+        """
+        name_node = method_node.child_by_field_name('name')
+        method_name = self._get_text(name_node)
+
+        return_type = "void"
+        type_node = method_node.child_by_field_name('type')
+        if type_node:
+            return_type = self._get_text(type_node)
+        else:
+            for child in method_node.children:
+                if child.type == 'void_type':
+                    return_type = "void"
+                    break
+
+        modifiers = []
+        for child in method_node.children:
+            if child.type == "modifiers":
+                for mod in child.children:
+                    if mod.type not in ['marker_annotation', 'annotation']:
+                        modifiers.append(self._get_text(mod))
+
+        parameters = []
+        params_node = method_node.child_by_field_name('parameters')
+        if params_node:
+            for param in params_node.children:
+                if param.type == 'formal_parameter':
+                    p_type = self._get_text(param.child_by_field_name('type'))
+                    p_name = self._get_text(param.child_by_field_name('name'))
+                    if not p_type:
+                        for child in param.children:
+                            if child.type.endswith('_type'):
+                                p_type = self._get_text(child)
+                                break
+
+                    parameters.append({"type": p_type, "name": p_name})
+
+        comment = self._get_comments(method_node)
+
+        called_functions = self._collect_invocations(method_node)
+
+        annotations = []
+        for child in method_node.children:
+            if child.type == 'modifiers':
+                for mod_child in child.children:
+                    if mod_child.type in ['marker_annotation', 'annotation']:
+                        annotations.append(self._get_text(mod_child))
+
+        method_code = self._get_text(method_node)
+
+        code_snippets = {
+            "IMO": method_code,
+        }
+
+        if comment:
+            code_snippets["IMD"] = f"{comment}\n{method_code}"
+            code_snippets["IMC"] = f"{comment}"
+
+        if interface_info:
+            class_modifiers = " ".join(interface_info.get("modifiers", []))
+            interface_name = interface_info.get("name", "")
+            extends = interface_info.get("extends", [])
+
+            interface_declaration = f"public interface {interface_name}"
+            if class_modifiers:
+                interface_declaration = f"{class_modifiers} interface {interface_name}"
+            if extends:
+                interface_declaration += f" extends {', '.join(extends)}"
+            interface_declaration += " {"
+
+            method_with_context = f"{interface_declaration}\n    {method_code}\n}}"
+            code_snippets["IMCC"] = method_with_context
+
+            if comment:
+                indented_comment = "    " + comment.replace("\n", "\n    ")
+                method_with_context_and_doc = f"{interface_declaration}\n    {indented_comment}\n    {method_code}\n}}"
+                code_snippets["IMDCC"] = method_with_context_and_doc
+            else:
+                code_snippets["IMDCC"] = method_with_context
+
+        final_enriched_code = method_code
+
+        return {
+            "name": method_name,
+            "return_type": return_type,
+            "modifiers": modifiers,
+            "annotations": annotations,
+            "parameters": parameters,
+            "called_functions": called_functions,
+            "comments": comment,
+            "original_code": method_code,
+            "enriched_code": final_enriched_code,
+            "code_snippets": code_snippets
+        }
 
     def _process_method_node(self, method_node, is_constructor=False, class_info=None):
         """
@@ -255,14 +435,16 @@ class JavaCodeAnalyzer:
         # 获取原始方法代码
         method_code = self._get_text(method_node)
         
-        # 生成代码片段字典，包含所有变体
+        # 生成代码片段字典，包含所有变体 MO:method original
         code_snippets = {
-            "default": method_code,
+            "MO": method_code,
         }
         
         # 方法+注释 (MD: method with docstring)
         if comment:
             code_snippets["MD"] = f"{comment}\n{method_code}"
+            # 方法注释 (MC: method comment)
+            code_snippets["MC"] = f"{comment}"
         
         # 如果有类上下文
         if class_info:
@@ -419,6 +601,7 @@ def analyze_directory(directory):
 # --- 测试代码 ---
 if __name__ == "__main__":
     test_directory = f"data\\{CONFIG['repo']}\\origin_src"
+    test_directory = f"src\JavaCodeAnalyzer\javacodetest"
     
     if os.path.exists(test_directory):
         analyze_directory(test_directory)

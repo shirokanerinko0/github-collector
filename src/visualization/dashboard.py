@@ -242,9 +242,19 @@ def main():
         st.subheader("代码片段配置")
         code_snippet_types = st.multiselect(
             "代码片段类型",
-            options=["default", "MC", "MCC", "MD", "MD+MCC", "CD", "FC"],
-            default=config.get('code_snippet', ["default"]),
-            help="选择要使用的代码片段类型"
+            options=["MO","CO", "MC", "MCC", "MD", "MDCC", "CD", "FC"],
+            default=config.get('code_snippet', ["MO","CO"]),
+            help="""
+            选择要使用的代码片段类型:\n
+            MO: 方法片段\n
+            CO: 类片段\n
+            MC: 方法注释片段\n
+            MCC: 方法带类上下文\n
+            MD: 方法带注释\n
+            MDCC: 方法带注释和类上下文\n
+            CD: 类带注释\n
+            FC: 整个代码文件\n
+            """
         )
 
         unique_file_only = st.checkbox("同文件只保留一个", value=config.get('unique_file_only', False))
@@ -424,14 +434,26 @@ def main():
                                 st.metric("至少命中一个", stats.get('requirements_with_at_least_one_hit', 0))
                             with col_d:
                                 recall = stats.get('overall_recall', 0)
-                                st.metric("整体召回率", f"{recall:.2%}")
-                            
-                            col_e, col_f, col_g = st.columns(3)
+                                st.metric("整体召回率(Recall)", f"{recall:.2%}")
+
+                            col_e, col_f, col_g, col_h = st.columns(4)
                             with col_e:
                                 st.metric("总变更文件", stats.get('total_change_files', 0))
                             with col_f:
-                                st.metric("命中文件数", stats.get('total_hit_files', 0))
+                                st.metric("预测文件数", stats.get('total_predicted_files', 0))
                             with col_g:
+                                st.metric("命中文件数(TP)", stats.get('total_hit_files', 0))
+                            with col_h:
+                                st.metric("误报数(FP)", stats.get('total_fp_files', 0))
+
+                            col_i, col_j, col_k = st.columns(3)
+                            with col_i:
+                                precision = stats.get('overall_precision', 0)
+                                st.metric("准确率(Precision)", f"{precision:.2%}")
+                            with col_j:
+                                f1 = stats.get('overall_f1', 0)
+                                st.metric("F1分数", f"{f1:.2%}")
+                            with col_k:
                                 st.metric("Top-K", stats.get('top_k', 5))
                         else:
                             # 多top_k情况
@@ -447,13 +469,28 @@ def main():
                                         st.metric("至少命中一个", stat_data.get('requirements_with_at_least_one_hit', 0))
                                     with col4:
                                         recall = stat_data.get('overall_recall', 0)
-                                        st.metric("整体召回率", f"{recall:.2%}")
-                                    
-                                    col5, col6 = st.columns(2)
+                                        st.metric("Recall", f"{recall:.2%}")
+
+                                    col5, col6, col7, col8 = st.columns(4)
                                     with col5:
-                                        st.metric("总变更文件", stat_data.get('total_change_files', 0))
+                                        st.metric("变更文件", stat_data.get('total_change_files', 0))
                                     with col6:
-                                        st.metric("命中文件数", stat_data.get('total_hit_files', 0))
+                                        st.metric("预测文件", stat_data.get('total_predicted_files', 0))
+                                    with col7:
+                                        st.metric("命中(TP)", stat_data.get('total_hit_files', 0))
+                                    with col8:
+                                        st.metric("误报(FP)", stat_data.get('total_fp_files', 0))
+
+                                    col9, col10, col11 = st.columns(3)
+                                    with col9:
+                                        precision = stat_data.get('overall_precision', 0)
+                                        st.metric("Precision", f"{precision:.2%}")
+                                    with col10:
+                                        f1 = stat_data.get('overall_f1', 0)
+                                        st.metric("F1", f"{f1:.2%}")
+                                    with col11:
+                                        avg_recall = stat_data.get('average_recall', 0)
+                                        st.metric("Avg Recall", f"{avg_recall:.2%}")
                         
                         st.divider()
                         
@@ -587,13 +624,22 @@ def main():
                                     if isinstance(recall_data, dict) and 'recall' in recall_data:
                                         # 单top_k情况
                                         st.metric("召回率", f"{recall_data['recall']:.2%}")
+                                        st.metric("精确率", f"{recall_data.get('precision', 0):.2%}")
+                                        st.metric("F1", f"{recall_data.get('f1', 0):.2%}")
                                         st.metric("命中/总数", f"{recall_data['hit_count']}/{recall_data['total_change_files']}")
                                     else:
                                         # 多top_k情况
-                                        st.subheader("各Top-K召回率")
+                                        st.subheader("各Top-K指标")
                                         for top_k, recall_info in recall_data.items():
-                                            st.metric(f"Top {top_k} 召回率", f"{recall_info['recall']:.2%}")
-                                            st.metric(f"Top {top_k} 命中/总数", f"{recall_info['hit_count']}/{recall_info['total_change_files']}")
+                                            col_p, col_r, col_f, col_h = st.columns(4)
+                                            with col_p:
+                                                st.metric(f"Top {top_k} Precision", f"{recall_info.get('precision', 0):.2%}")
+                                            with col_r:
+                                                st.metric(f"Top {top_k} Recall", f"{recall_info['recall']:.2%}")
+                                            with col_f:
+                                                st.metric(f"Top {top_k} F1", f"{recall_info.get('f1', 0):.2%}")
+                                            with col_h:
+                                                st.metric(f"Top {top_k} 命中", f"{recall_info['hit_count']}/{recall_info['total_change_files']}")
                                 else:
                                     st.info("无变更文件数据")
                             
@@ -650,6 +696,8 @@ def main():
                                     'file': f,
                                     'model': encode_model_name,
                                     'recall': stats.get('overall_recall', 0),
+                                    'precision': stats.get('overall_precision', 0),
+                                    'f1': stats.get('overall_f1', 0),
                                     'total_req': stats.get('total_requirements', 0),
                                     'with_change': stats.get('requirements_with_change_files', 0),
                                     'at_least_one': stats.get('requirements_with_at_least_one_hit', 0),
@@ -664,6 +712,8 @@ def main():
                                         'file': f,
                                         'model': f"{encode_model_name}_top{top_k}",
                                         'recall': stat_data.get('overall_recall', 0),
+                                        'precision': stat_data.get('overall_precision', 0),
+                                        'f1': stat_data.get('overall_f1', 0),
                                         'total_req': stat_data.get('total_requirements', 0),
                                         'with_change': stat_data.get('requirements_with_change_files', 0),
                                         'at_least_one': stat_data.get('requirements_with_at_least_one_hit', 0),
@@ -671,22 +721,41 @@ def main():
                                         'hit_files': stat_data.get('total_hit_files', 0),
                                         'top_k': top_k
                                     })
-                    
+
                     df = pd.DataFrame(comparison_data)
-                    
+
                     col1, col2 = st.columns(2)
                     with col1:
-                        fig = px.bar(df, x='model', y='recall', 
+                        fig = px.bar(df, x='model', y='recall',
                                     title='各模型召回率对比',
                                     text=[f"{r:.2%}" for r in df['recall']])
                         st.plotly_chart(fig, use_container_width=True)
-                    
+
                     with col2:
+                        fig = px.bar(df, x='model', y='f1',
+                                    title='各模型F1分数对比',
+                                    text=[f"{r:.2%}" for r in df['f1']])
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        fig = px.bar(df, x='model', y='precision',
+                                    title='各模型精确率对比',
+                                    text=[f"{r:.2%}" for r in df['precision']])
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    with col4:
                         fig = px.bar(df, x='model', y=['at_least_one', 'with_change'],
                                     title='需求命中情况对比', barmode='group')
                         st.plotly_chart(fig, use_container_width=True)
-                    
-                    st.dataframe(df.style.format({'recall': '{:.2%}'}), use_container_width=True)
+
+                    st.subheader("对比数据详情")
+                    display_df = df[['model', 'recall', 'precision', 'f1', 'total_req', 'with_change', 'hit_files']].copy()
+                    st.dataframe(display_df.style.format({
+                        'recall': '{:.2%}',
+                        'precision': '{:.2%}',
+                        'f1': '{:.2%}'
+                    }), use_container_width=True)
 
 if __name__ == "__main__":
     main()

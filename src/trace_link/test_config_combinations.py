@@ -53,18 +53,36 @@ def run_test(code_snippet):
 def main():
     original_config = save_original_config()
 
+    fixed_base_snippets = ["IO", "IMO", "IMD"]
+
     try:
         combinations = [
-            ["default"],
-            ["default", "MC"],
-            ["default", "MCC"],
-            ["default", "MD"],
-            ["default", "MC", "MCC", "MD"],
-            ["default", "MC", "MCC", "MD", "CD", "MDCC"],
+            ["CO","MO"],
+            ["CO","MCC"],
+            ["CO","MD"],
+            ["CO","MDCC"],
+            ["CO","MO","MC"],
+            ["CO","MCC","MC"],
+            ["CO","MD","MC"],
+            ["CO","MDCC","MC"],
+            ["CO","MCC","MO"],
+            ["CO","MD","MO"],
+            ["CO","MDCC","MO"],
+            ["CO","MO","MC"],
+            ["CO","MCC","MC","MO"],
+            ["CO","MD","MC","MO"],
+            ["CO","MDCC","MC","MO"],
         ]
 
-        for i, code_snippet in enumerate(combinations, 1):
-            print(f"\n开始测试组合 {i}/{len(combinations)}")
+        all_tests = []
+        for combo in combinations:
+            combined = list(set(combo + fixed_base_snippets))
+            all_tests.append(combined)
+
+        print(f"总共需要测试 {len(all_tests)} 个配置组合\n")
+
+        for i, code_snippet in enumerate(all_tests, 1):
+            print(f"\n开始测试组合 {i}/{len(all_tests)}: {code_snippet}")
             run_test(code_snippet)
 
         print("\n" + "=" * 80)

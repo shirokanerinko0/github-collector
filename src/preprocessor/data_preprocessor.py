@@ -19,7 +19,6 @@ from src.utils.utils import load_config
 import json
 CONFIG = load_config()
 use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
-req_query_prefix = CONFIG["requirement_processing"]["req_query_prefix"]
 
 # 导入LLM处理函数
 if use_llm_processing:
@@ -149,9 +148,9 @@ class DataPreprocessor:
                     processed_req["llm_category"] = llm_data.get("category")
                     search_query = llm_data.get("search_query")
                     if search_query:
-                        processed_req["search_query"] = req_query_prefix + ((title + "\n")if CONFIG["requirement_processing"]["prefix_title"] else "") + search_query
+                        processed_req["search_query"] = search_query
                     else:
-                        processed_req["search_query"] = req_query_prefix + full_text
+                        processed_req["search_query"] = full_text
                     processed_req["llm_reason"] = llm_data.get("reason")
                     processed_req["type"] = llm_data.get("category", "default")
                     break  # 处理成功，跳出循环
@@ -167,10 +166,10 @@ class DataPreprocessor:
                         traceback.print_exc()
                         processed_req["llm_reason"] = "error"
                         processed_req["llm_category"] = "error"
-                        processed_req["search_query"] = req_query_prefix + full_text
+                        processed_req["search_query"] = full_text
                         processed_req["type"] = "default"
         else:
-            processed_req["search_query"] = req_query_prefix + ((title + "\n")if CONFIG["requirement_processing"]["prefix_title"] else "") + description
+            processed_req["search_query"] =  description
             processed_req["type"] = "default"
 
         return processed_req

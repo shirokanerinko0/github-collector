@@ -64,7 +64,7 @@ class JinaCodeEncoder(BaseEncoder):
         将代码片段编码为向量
         
         Args:
-            document (str): 代码片段
+            texts (list[str]): 代码片段列表
             
         Returns:
             numpy.ndarray: 编码后的向量，形状为 (embedding_dim,)

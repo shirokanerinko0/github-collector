@@ -105,7 +105,9 @@ def process_files_with_encoder(req, change_files):
 
     # 构建需求文本
     requirement_text = req.get('search_query', '')
-
+    req_title = req.get('title', '')
+    if CONFIG["requirement_processing"]["prefix_title"]:
+        requirement_text = f"{req_title}\n{requirement_text}"
     req_embedding = encoder.encode_query([requirement_text])[0]
     req_embedding = torch.tensor(req_embedding)
 
@@ -127,10 +129,10 @@ def process_files_with_encoder(req, change_files):
     for top_k in top_k_list:
         k = min(top_k, embeddings.shape[0])
         # 获取足够多的候选结果，确保有足够的不重复文件路径
-        candidate_k = min(k * 5, embeddings.shape[0])
+        candidate_k = min(k * 500, embeddings.shape[0])
         topk_scores, topk_indices = torch.topk(similarities, k=candidate_k)
-
         links = []
+
         seen_file_paths = set()  # 记录已经添加的文件路径
         
         # 遍历候选结果，确保文件路径不重复
@@ -156,7 +158,7 @@ def process_files_with_encoder(req, change_files):
                 continue
             
             # 如果文件路径还没出现过，添加到结果中
-            if not CONFIG["unique_file_only"] or (file_path not in seen_file_paths):
+            if (not CONFIG["unique_file_only"]) or (file_path not in seen_file_paths):
                 seen_file_paths.add(file_path)
                 links.append({
                     'file_path': file_path,
@@ -202,10 +204,16 @@ def trace_links():
             'requirements_with_change_files': 0,
             'requirements_with_at_least_one_hit': 0,
             'total_change_files': 0,
+            'total_predicted_files': 0,
             'total_hit_files': 0,
+            'total_fp_files': 0,
             'top_k': top_k,
-            'average_recall': 0.0,  # 平均召回率
-            'total_recall_sum': 0.0  # 召回率总和
+            'average_recall': 0.0,
+            'average_precision': 0.0,
+            'average_f1': 0.0,
+            'total_recall_sum': 0.0,
+            'total_precision_sum': 0.0,
+            'total_f1_sum': 0.0
         }
     
     for req in tqdm(requirements, desc="已完成追踪连接需求："):
@@ -243,11 +251,14 @@ def trace_links():
                 stats = overall_stats[top_k]
                 stats['requirements_with_change_files'] += 1
                 stats['total_change_files'] += recall_info['total_change_files']
+                stats['total_predicted_files'] += recall_info['predicted_count']
                 stats['total_hit_files'] += recall_info['hit_count']
+                stats['total_fp_files'] += recall_info['fp_count']
                 if recall_info['hit_count'] > 0:
                     stats['requirements_with_at_least_one_hit'] += 1
-                # 累加召回率总和
                 stats['total_recall_sum'] += recall_info['recall']
+                stats['total_precision_sum'] += recall_info['precision']
+                stats['total_f1_sum'] += recall_info['f1']
         
         # 选择最大topk的链接作为主链接
         max_topk = max(top_k_list)
@@ -268,19 +279,36 @@ def trace_links():
         
         results.append(result_item)
     
-    # 计算整体召回率和平均召回率
+    # 计算整体统计
     for top_k, stats in overall_stats.items():
         if stats['total_change_files'] > 0:
             stats['overall_recall'] = stats['total_hit_files'] / stats['total_change_files']
         else:
             stats['overall_recall'] = 0.0
-        
-        # 计算平均召回率
+
+        if stats['total_predicted_files'] > 0:
+            stats['overall_precision'] = stats['total_hit_files'] / stats['total_predicted_files']
+        else:
+            stats['overall_precision'] = 0.0
+
+        if (stats['overall_recall'] + stats['overall_precision']) > 0:
+            stats['overall_f1'] = 2 * stats['overall_recall'] * stats['overall_precision'] / (stats['overall_recall'] + stats['overall_precision'])
+        else:
+            stats['overall_f1'] = 0.0
+
         if stats['requirements_with_change_files'] > 0:
             stats['average_recall'] = stats['total_recall_sum'] / stats['requirements_with_change_files']
+            stats['average_precision'] = stats['total_precision_sum'] / stats['requirements_with_change_files']
+            stats['average_f1'] = stats['total_f1_sum'] / stats['requirements_with_change_files']
         else:
             stats['average_recall'] = 0.0
-    
+            stats['average_precision'] = 0.0
+            stats['average_f1'] = 0.0
+
+        del stats['total_recall_sum']
+        del stats['total_precision_sum']
+        del stats['total_f1_sum']
+
     # 准备最终输出
     final_output = {
         'results': results,
@@ -303,21 +331,25 @@ def trace_links():
         print(f"  总需求数: {stats['total_requirements']}")
         print(f"  有变更文件的需求数: {stats['requirements_with_change_files']}")
         print(f"  至少命中一个文件的需求数: {stats['requirements_with_at_least_one_hit']}")
-        print(f"  总变更文件数: {stats['total_change_files']}")
-        print(f"  命中文件数: {stats['total_hit_files']}")
-        print(f"  整体召回率: {stats.get('overall_recall', 0):.4f}")
+        print(f"  总变更文件数 (Actual): {stats['total_change_files']}")
+        print(f"  预测文件数 (Predicted): {stats['total_predicted_files']}")
+        print(f"  命中文件数 (TP): {stats['total_hit_files']}")
+        print(f"  误报文件数 (FP): {stats['total_fp_files']}")
+        print(f"  整体召回率 (Recall): {stats.get('overall_recall', 0):.4f}")
+        print(f"  整体准确率 (Precision): {stats.get('overall_precision', 0):.4f}")
+        print(f"  整体F1分数 (F1): {stats.get('overall_f1', 0):.4f}")
         print(f"  平均召回率: {stats.get('average_recall', 0):.4f}")
+        print(f"  平均准确率: {stats.get('average_precision', 0):.4f}")
+        print(f"  平均F1分数: {stats.get('average_f1', 0):.4f}")
         print("=" * 60)
     
     # 打印前几个需求的结果
     for result in results[:3]:  # 只显示前3个需求
         print(f"\n需求 {result['req_id']}: {result['req_title']}")
         if result['change_files']:
-            # 打印每个topk的召回率
             if result.get('recall'):
                 for top_k, recall_info in result['recall'].items():
-                    print(f"  Top {top_k}: 变更文件: {recall_info['total_change_files']}, 命中: {recall_info['hit_count']}, 召回率: {recall_info['recall']:.4f}")
-        # 显示前3个最相似的链接
+                    print(f"  Top {top_k}: 变更文件: {recall_info['total_change_files']}, 预测: {recall_info['predicted_count']}, 命中: {recall_info['hit_count']}, FP: {recall_info['fp_count']}, Recall: {recall_info['recall']:.4f}, Precision: {recall_info['precision']:.4f}, F1: {recall_info['f1']:.4f}")
         print("  最相似的链接:")
         for link in result['links'][:3]:
             print(f"    - 文件: {link['file_path']}, 类: {link['class_name']}, 相似度: {link['similarity']:.4f}")

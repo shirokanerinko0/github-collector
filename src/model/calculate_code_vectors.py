@@ -94,12 +94,13 @@ def process_analysis_files(directory):
                         
                         # 处理类的所有代码片段类型（编码所有类型）
                         for snippet_type, snippet_code in class_snippets.items():
-                            texts_to_encode.append(snippet_code)
-                            file_paths.append(relative_path)
-                            method_names.append("")
-                            class_names.append(class_name)
-                            original_codes.append(class_code)
-                            snippet_types.append(f"class_{snippet_type}")
+                            if snippet_code: # 过滤空字符串
+                                texts_to_encode.append(snippet_code)
+                                file_paths.append(relative_path)
+                                method_names.append("")
+                                class_names.append(class_name)
+                                original_codes.append(class_code)
+                                snippet_types.append(f"class_{snippet_type}")
                         
                         # 处理方法
                         if analyze_by_method:
@@ -110,22 +111,23 @@ def process_analysis_files(directory):
                                 
                                 # 处理方法的所有代码片段类型（编码所有类型）
                                 for snippet_type, snippet_code in method_snippets.items():
-                                    texts_to_encode.append(snippet_code)
-                                    file_paths.append(relative_path)
-                                    method_names.append(method_name)
-                                    class_names.append(class_name)
-                                    original_codes.append(method_code)
-                                    snippet_types.append(f"method_{snippet_type}")
+                                    if snippet_code: # 过滤空字符串
+                                        texts_to_encode.append(snippet_code)
+                                        file_paths.append(relative_path)
+                                        method_names.append(method_name)
+                                        class_names.append(class_name)
+                                        original_codes.append(method_code)
+                                        snippet_types.append(f"method_{snippet_type}")
                                 
                                 # 处理方法注释 (MC)
-                                method_comment = method.get("comments", "")
-                                if method_comment:
-                                    texts_to_encode.append(method_comment)
-                                    file_paths.append(relative_path)
-                                    method_names.append(method_name)
-                                    class_names.append(class_name)
-                                    original_codes.append(method_comment)
-                                    snippet_types.append("method_MC")
+                                # method_comment = method.get("comments", "")
+                                # if method_comment:
+                                #     texts_to_encode.append(method_comment)
+                                #     file_paths.append(relative_path)
+                                #     method_names.append(method_name)
+                                #     class_names.append(class_name)
+                                #     original_codes.append(method_comment)
+                                #     snippet_types.append("method_MC")
                                     
                 except Exception as e:
                     print(f"解析文件 {file_path} 时出错: {e}")

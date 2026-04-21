@@ -1,24 +1,25 @@
 {
-    "repo1": {
-        "owner": "json-iterator",
-        "repo": "java"
+    "redisson": {
+        "owner": "redisson",
+        "repo": "redisson",
+        "main_branch": "master",
+        "filter_labels": [
+            "feature"
+        ],
+        "pr_filter_labels": [
+            "feature"
+        ]
     },
-    "repo2": {
-        "owner": "spring-projects",
-        "repo": "spring-petclinic"
+    "kafka": {
+        "owner": "apache",
+        "repo": "kafka",
+        "base": "trunk"
     },
-    "repo3": {
-        "owner": "square",
-        "repo": "okhttp"
-    },
-    "repo4": {
+    "guava": {
         "owner": "google",
         "repo": "guava",
         "labels": [
             "type=addition"
-        ],
-        "excluded_dirs": [
-            "guava-master/src/test"
         ]
     }
 }
