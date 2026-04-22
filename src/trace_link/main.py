@@ -15,10 +15,11 @@ CONFIG = load_config()
 encoder = None
 data = None
 use_llm_processing = CONFIG["requirement_processing"]["use_llm_processing"]
-encode_model_name = CONFIG.get("encode_model_name", "unixcoder")
+encode_model_name = CONFIG.get("encode_model_name", "jina-code")
 top_k_list = CONFIG.get("top_k", [5])
 if isinstance(top_k_list, int):
     top_k_list = [top_k_list]
+top_k_list = sorted(set(top_k_list))
 
 def get_data():
     # 根据模型名称生成pt文件名
@@ -126,49 +127,50 @@ def process_files_with_encoder(req, change_files):
         embeddings.T
     ).squeeze(0)
 
+    # 预排序所有候选（一次性计算）
+    sorted_indices = torch.argsort(similarities, descending=True)
+
+    file_paths = data['file_paths']
+    class_names = data['class_names']
+    method_names = data['method_names']
+    original_codes = data['original_code']
+    allowed_snippets = set(code_snippet_types)
+    unique_file_only = CONFIG["unique_file_only"]
+
+    def get_snippet_suffix(st):
+        return st.split("_", 1)[1] if "_" in st else st
+
+    links_all = {}
+    seen_file_paths = set()
+    current_pointer = 0
+    links = []
+
     for top_k in top_k_list:
         k = min(top_k, embeddings.shape[0])
-        # 获取足够多的候选结果，确保有足够的不重复文件路径
-        candidate_k = min(k * 500, embeddings.shape[0])
-        topk_scores, topk_indices = torch.topk(similarities, k=candidate_k)
-        links = []
 
-        seen_file_paths = set()  # 记录已经添加的文件路径
-        
-        # 遍历候选结果，确保文件路径不重复
-        for score, idx in zip(topk_scores, topk_indices):
-            if len(links) >= k:  # 达到目标数量，停止
-                break
-                
-            idx = idx.item()
-            file_path = data['file_paths'][idx]
+        while len(links) < k and current_pointer < len(sorted_indices):
+            idx = sorted_indices[current_pointer].item()
+            current_pointer += 1
+
+            file_path = file_paths[idx]
             snippet_type = snippet_types[idx] if idx < len(snippet_types) else "unknown"
-            
-            # 根据配置过滤代码片段类型
-            # snippet_type 格式: "method_default", "class_CD", "method_MC", "code_FC" 等
-            # code_snippet 配置: ["default", "MC", "CD", "MD", "MCC", "MDCC", "FC"]
-            # 提取类型后缀，检查是否在配置中
-            if "_" in snippet_type:
-                suffix = snippet_type.split("_", 1)[1]
-                should_include = suffix in code_snippet_types
-            else:
-                should_include = snippet_type in code_snippet_types
-            
-            if not should_include:
+            suffix = get_snippet_suffix(snippet_type)
+
+            if suffix not in allowed_snippets:
                 continue
-            
-            # 如果文件路径还没出现过，添加到结果中
-            if (not CONFIG["unique_file_only"]) or (file_path not in seen_file_paths):
+
+            if (not unique_file_only) or (file_path not in seen_file_paths):
                 seen_file_paths.add(file_path)
                 links.append({
                     'file_path': file_path,
-                    'class_name': data['class_names'][idx],
-                    'method_name': data['method_names'][idx],
-                    'similarity': score.item(),
-                    'original_code': data['original_code'][idx],
+                    'class_name': class_names[idx],
+                    'method_name': method_names[idx],
+                    'similarity': similarities[idx].item(),
+                    'original_code': original_codes[idx],
                     'snippet_type': snippet_type
                 })
-        links_all[top_k] = links
+
+        links_all[top_k] = list(links)
 
     return links_all
 
