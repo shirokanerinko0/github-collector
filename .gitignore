@@ -16,6 +16,7 @@ file_operations/repo/
 *.bin
 # 测试数据文件
 *test.json
+*output.json
 githubapitest.py
 testdata/
 logs/

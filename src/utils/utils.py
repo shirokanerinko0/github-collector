@@ -78,6 +78,8 @@ def save_config(config, config_file="config.json"):
 
 
 def get_trace_link_result_file_name():
+    global CONFIG
+    CONFIG = load_config()
     encode_model_name= CONFIG['encode_model_name']
     top_k= CONFIG['top_k']
     # 处理top_k为数组的情况

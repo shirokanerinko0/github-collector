@@ -176,7 +176,8 @@ def process_files_with_encoder(req, change_files):
 
 def trace_links():
     """实现需求到代码的追踪链接"""
-    global encoder, data
+    global encoder, data ,CONFIG
+    CONFIG = load_config()
     
     # 初始化编码器和数据（如果尚未初始化）
     if encoder is None:
